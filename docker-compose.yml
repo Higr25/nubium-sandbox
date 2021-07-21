@@ -1,0 +1,45 @@
+version: '3'
+services:
+    web:
+        image: nginx:latest
+        ports:
+            - "80:80"
+            - "443:443"
+        volumes:
+            - ./nginx.conf:/etc/nginx/conf.d/nginx.conf
+            - ./cert.pem:/cert.pem
+            - ./key.pem:/key.pem
+            - ./certbot/conf:/etc/letsencrypt
+            - ./certbot/www:/var/www/certbot    
+        volumes_from:
+            - php   
+                       
+    certbot:
+        image: certbot/certbot   
+        volumes:
+              - ./certbot/conf:/etc/letsencrypt
+              - ./certbot/www:/var/www/certbot
+        
+    php:
+        build:
+           context: .
+           dockerfile: Dockerfile
+        volumes:
+            - ./web-project:/web-project   
+    
+    db:
+        build:
+            context: ./web-project/mysql
+            dockerfile: Dockerfile
+        volumes:
+            - ./web-project/mysql:/docker-entrypoint-initdb.d
+            - ./web-project/mysql/my.cnf:/web-project/mysql/my.cnf
+        ports:
+            - 3306:3306
+        restart: always    
+        command: mysqld --sql_mode="STRICT_ALL_TABLES"    
+            
+
+    
+volumes:
+    mysqldata: {}

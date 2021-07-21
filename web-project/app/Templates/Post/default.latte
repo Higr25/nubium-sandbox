@@ -1,0 +1,91 @@
+{block content}
+
+<div class="container d-flex flex-column pt-3">	
+				
+				{snippet sort}
+								<div class="row mb-3">
+												<div class="col col-1 px-0">
+																<span class="mt-3">Řadit podle</span>
+												</div>	
+												<div class="col col-4 mr-4">
+																<a href="{plink refresh!, 'order', 0}" class="ajax btn {if $order == 0} btn-primary {else} btn-light {/if}">Datum</a>			
+																<a href="{plink refresh!, 'order', 1}" class="ajax btn {if $order == 1} btn-primary {else} btn-light {/if}">Nadpis</a>			
+																<a href="{plink refresh!, 'order', 2}" class="ajax btn {if $order == 2} btn-primary {else} btn-light {/if}">Hodnocení</a>			
+												</div>	
+								</div>	
+								<div class="row mb-3">
+												<div class="col col-1 px-0">
+												</div>
+												<div class="col col-4">
+																<a href="{plink refresh!, 'order_type', 1}" class="ajax btn {if $order_type == 1} btn-primary {else} btn-light {/if}">Vzestupně</a>			
+																<a href="{plink refresh!, 'order_type', 0}" class="ajax btn {if $order_type == 0} btn-primary {else} btn-light {/if}">Sestupně</a>			
+												</div>
+								</div>				
+				{/snippet}				
+				
+				{snippet posts}
+								{foreach $posts as $post}
+												<div class="card mb-3">
+																<div class="card-body">
+																				<h5 class="card-title">{$post['header']}</h5> 
+																				<h6 class="card-subtitle mb-2 text-muted">{$post['created_at']|date:'j.n.Y'}</h6>
+																				<p class="card-text">{$post['perex']}<p>
+																				{if $user->isLoggedIn()}																
+																								<a href="{plink vote! $post['id'], 1}" class="ajax card-link mr-3">
+																												<span class="material-icons material-icons-outlined align-middle">
+																																thumb_up_off_alt
+																												</span>
+																												<span>
+																															 {$post['upvotes']}
+																												</span>				
+																								</a>
+																				{/if}								
+																					
+																				Hodnocení: 
+																				<span class="font-weight-bold mr-3 {if $post['rating'] > 0} text-green {elseif ($post['rating'] < 0)} text-red {/if}">
+																								 {$post['rating']}
+																				</span>				
+																			
+																				{if $user->isLoggedIn()}					
+																								<a href="{plink vote! $post['id'], 0}" class="ajax card-link">
+																												<span class="material-icons material-icons-outlined align-middle">
+																																thumb_down_off_alt
+																												</span>
+																												<span>
+																																{$post['downvotes']}
+																												</span>		
+																								</a>																						
+																				{/if}				
+																</div>
+												</div>
+								{/foreach}	
+				{/snippet}			
+				
+				{snippet paginator}
+								<nav class="d-flex justify-content-center" aria-label="Page navigation example">
+												<ul class="pagination">
+																{if !$paginator->isFirst()}
+																				<li class="page-item">
+																								<a class="ajax page-link" href="{plink refresh!, 'page', 1}">První</a>
+																				</li>
+																				<li class="page-item">
+																								<a class="ajax page-link" href="{plink refresh!, 'page', $paginator->getPage() - 1}">{$paginator->getPage() - 1}</a>
+																				</li>
+																{/if}	
+
+																				<li class="page-item active">
+																								<p class="ajax page-link">{$paginator->getPage()}</p>
+																				</li>
+
+																{if !$paginator->isLast()}
+																				<li class="page-item">
+																								<a class="ajax page-link" href="{plink refresh!, 'page', $paginator->getPage() + 1}">{$paginator->getPage() + 1}</a>
+																				</li>
+																				<li class="page-item">
+																								<a class="ajax page-link" href="{plink refresh!, 'page', $paginator->getPageCount()}">Poslední</a>
+																				</li>
+																{/if}													
+												</ul>
+								</nav>	
+				{/snippet}				
+</div>		

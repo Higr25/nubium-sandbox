@@ -1,0 +1,12 @@
+.success, .flash {
+				background-color: green;
+				height: 50px;
+}
+
+.text-green {
+				color: green;
+}
+
+.text-red {
+				color: red;
+}

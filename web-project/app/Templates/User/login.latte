@@ -1,0 +1,23 @@
+{block content}
+
+<div class="container d-flex flex-column align-items-center">
+				<div class="mb-5">
+								<h1 class="text-bold">PŘIHLÁŠENÍ</h1>
+				</div>
+				
+				<form n:name=loginForm class="">
+								<div class="d-flex flex-column">
+												<span class="text-left">Email</span>				
+												<input n:name=email />
+												
+												<span class="text-left">Heslo</span>				
+												<input n:name=password />
+												
+												<button type="submit" class="btn btn-primary mt-4">Přihlásit</button>
+								</div>										
+								
+								<ul class="errors" n:if="$form->hasErrors()">
+												<li n:foreach="$form->errors as $error">{$error}</li>
+								</ul>
+				</form>				
+</div>				
