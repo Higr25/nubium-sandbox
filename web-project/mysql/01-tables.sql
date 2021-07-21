@@ -9,7 +9,7 @@ CREATE TABLE t_user (
     created_ip VARCHAR(15) NOT NULL,
     PRIMARY KEY (id),
 				UNIQUE (login)
-);
+) DEFAULT CHARACTER SET utf8mb4 COLLATE = utf8mb4_unicode_ci;
 
 DROP TABLE IF EXISTS t_post;
 
@@ -36,5 +36,5 @@ CREATE TABLE t_vote (
     PRIMARY KEY (id),
 				FOREIGN KEY (id_post) REFERENCES t_post(id),
 				FOREIGN KEY (id_user) REFERENCES t_user(id)
-);
+) DEFAULT CHARACTER SET utf8mb4 COLLATE = utf8mb4_unicode_ci;
 
