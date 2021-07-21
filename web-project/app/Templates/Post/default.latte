@@ -33,7 +33,11 @@
 																				{if $user->isLoggedIn()}																
 																								<a href="{plink vote! $post['id'], 1}" class="ajax card-link mr-3">
 																												<span class="material-icons material-icons-outlined align-middle">
-																																thumb_up_off_alt
+																																{if $post['voted'] && $post['voted_up']}
+																																				thumb_up
+																																{else}				
+																																				thumb_up_off_alt
+																																{/if}				
 																												</span>
 																												<span>
 																															 {$post['upvotes']}
@@ -49,7 +53,11 @@
 																				{if $user->isLoggedIn()}					
 																								<a href="{plink vote! $post['id'], 0}" class="ajax card-link">
 																												<span class="material-icons material-icons-outlined align-middle">
-																																thumb_down_off_alt
+																																{if $post['voted'] && !$post['voted_up']}
+																																				thumb_down
+																																{else}				
+																																				thumb_down_off_alt
+																																{/if}
 																												</span>
 																												<span>
 																																{$post['downvotes']}

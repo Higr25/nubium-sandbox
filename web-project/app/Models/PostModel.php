@@ -13,12 +13,24 @@ class PostModel extends BaseModel {
      * @param string $order
      * @return object
      */
-    public function getPosts($paginator, $isLoggedIn, $order, $order_type) {								
-								$base = <<<EOSQL
+    public function getPosts($paginator, $isLoggedIn, $order, $order_type, $idUser = null) {				
+								$base_logged = <<<EOSQL
+												SELECT p.*,
+																COALESCE( COUNT(distinct(vu.id)), 0 ) AS upvotes,
+																COALESCE( COUNT(distinct(vd.id)), 0 ) AS downvotes,
+																(COUNT(distinct(vu.id)) - COUNT(distinct(vd.id))) AS rating,
+																COALESCE( COUNT(distinct(v.id)), 0 ) AS voted,
+																v.up AS voted_up
+EOSQL;
+								
+								$base_not_logged = <<<EOSQL
 												SELECT p.*,
 																COALESCE( COUNT(distinct(vu.id)), 0 ) AS upvotes,
 																COALESCE( COUNT(distinct(vd.id)), 0 ) AS downvotes,
 																(COUNT(distinct(vu.id)) - COUNT(distinct(vd.id))) AS rating
+EOSQL;
+								
+								$sql_mid = <<<EOSQL
 												FROM t_post p
 
 												LEFT JOIN (SELECT id, id_post, count(*) AS COUNT
@@ -30,18 +42,18 @@ class PostModel extends BaseModel {
 																FROM t_vote vd
 																WHERE up = 0 AND active = 1
 																GROUP BY id) vd ON p.id = vd.id_post
-												
-												WHERE active = 1                
 EOSQL;
 								
-								$count = <<<EOSQL
-												SELECT p.id
-												FROM t_post p
-												WHERE active = 1				
+								$sql_logged = <<<EOSQL
+												LEFT JOIN (
+																SELECT id, id_post, up
+																FROM t_vote v
+																WHERE id_user = ? AND active = 1
+											) v ON p.id = v.id_post	
 EOSQL;
 				
 								$not_logged = <<<EOSQL
-												AND private = 0
+												WHERE active = 1 AND private = 0
 EOSQL;
 								
 								$end = <<<EOSQL
@@ -49,19 +61,31 @@ EOSQL;
 												ORDER BY ?
 												LIMIT ?, ?				
 EOSQL;
-																
+								
+								$count = <<<EOSQL
+												SELECT p.id
+												FROM t_post p
+												WHERE active = 1				
+EOSQL;
+								
+								$count_not_logged = <<<EOSQL
+												AND private = 0				
+EOSQL;
 								$order_types = ['created_at', 'header', 'rating'];
 								
 								$_order = array_key_exists($order,	$order_types) ? $order_types[$order] : reset($order_types);
 								$_order_type = boolval($order_type);
-								
 																
 								if ($isLoggedIn) {
-												$rows = $this->db->query($base . ' ' . $end, [$_order => $_order_type], $paginator->getOffset(), $paginator->getLength())->fetchAll();
+												$sql = $base_logged . ' ' . $sql_mid . ' ' . $sql_logged . ' ' . $end;
+												
+												$rows = $this->db->query($sql, $idUser, [$_order => $_order_type], $paginator->getOffset(), $paginator->getLength())->fetchAll();
 												$rowsCount = $this->db->query($count)->getRowCount();
 								} else {
-												$rows = $this->db->query($base . ' ' . $not_logged . ' ' . $end, [$_order => boolval($_order_type)], $paginator->getOffset(), $paginator->getLength())->fetchAll();
-												$rowsCount = $this->db->query($count . ' ' . $not_logged)->getRowCount();
+												$sql = 	$base_not_logged . ' ' . $sql_mid . ' ' . $not_logged . ' ' . $end;
+												
+												$rows = $this->db->query($sql, [$_order => boolval($_order_type)], $paginator->getOffset(), $paginator->getLength())->fetchAll();
+												$rowsCount = $this->db->query($count . ' ' . $count_not_logged)->getRowCount();
 								}
         
         return ['data' => $rows,

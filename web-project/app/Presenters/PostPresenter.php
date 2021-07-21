@@ -22,11 +22,16 @@ class PostPresenter extends Nette\Application\UI\Presenter {
 				public function renderDefault() {											
 								$isLoggedIn = $this->getUser()->isLoggedIn();
 								
+								$userId = null;
+								if ($isLoggedIn) {
+												$userId = $this->getUser()->identity->id;
+								}				
+								
 								$paginator = new Nette\Utils\Paginator;
         $paginator->setPage($this->page);
         $paginator->setItemsPerPage(4);
 								
-								$posts = $this->model->getPosts($paginator, $isLoggedIn, $this->order, $this->order_type);
+								$posts = $this->model->getPosts($paginator, $isLoggedIn, $this->order, $this->order_type, $userId);
 								
 								$paginator->setItemCount($posts['count']);
 																

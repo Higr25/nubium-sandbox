@@ -7,7 +7,8 @@ CREATE TABLE t_user (
 				active TINYINT(1) NOT NULL,
     created_at DATETIME NOT NULL,
     created_ip VARCHAR(15) NOT NULL,
-    PRIMARY KEY (id)
+    PRIMARY KEY (id),
+				UNIQUE (login)
 );
 
 DROP TABLE IF EXISTS t_post;
