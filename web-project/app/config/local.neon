@@ -1,0 +1,7 @@
+parameters:
+
+
+database:
+	dsn: 'mysql:host=host.docker.internal;dbname=nette'
+	user: 'dev'
+	password: 'dev'
