@@ -10,6 +10,23 @@ declare(strict_types=1);
 namespace Nette\PhpGenerator;
 
 
-class PhpLiteral extends Literal
+/**
+ * PHP literal value.
+ */
+class PhpLiteral
 {
+	/** @var string */
+	private $value;
+
+
+	public function __construct(string $value)
+	{
+		$this->value = $value;
+	}
+
+
+	public function __toString(): string
+	{
+		return $this->value;
+	}
 }

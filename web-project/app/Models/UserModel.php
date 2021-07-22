@@ -3,9 +3,11 @@
 namespace	App\Models;
 
 use App\Models\BaseModel;
+use Nette\Security\Passwords;
 
 class	UserModel extends BaseModel	{
 				use \Nette\SmartObject;
+				
 				
 				/**
 				 * Return user by email
@@ -22,10 +24,12 @@ class	UserModel extends BaseModel	{
 				 * @param array $values
 				 */
 				public function registerUser($values) {
-							return $id = $this->db->table('t_user')
+							 $passwords = new Passwords(PASSWORD_BCRYPT, ['cost' => 12]);
+								
+							 return $id = $this->db->table('t_user')
 																												->insert([
 																															'login' => $values['email']	,
-																															'password' => $this->passwords->hash($values['password']),
+																															'password' => $passwords->hash($values['password']),
 																															'created_at' => new \Nette\Utils\DateTime(),
 																															'created_ip' => $values['created_ip'],
 																															'active' => 1
@@ -38,10 +42,12 @@ class	UserModel extends BaseModel	{
 				 * @param string $email
 				 */
 				public function updatePassword($values, $email) {
+								$passwords = new Passwords(PASSWORD_BCRYPT, ['cost' => 12]);
+								
 								$this->db->table('t_user')
 																 ->where('login', $email)
 																 ->update([
-																				'password' => $this->passwords->hash($values['password_new'])
+																				'password' => $passwords->hash($values['password_new'])
 																	]);
 				}
 }

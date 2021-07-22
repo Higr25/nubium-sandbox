@@ -120,13 +120,7 @@ class Helpers
 				return '?';
 			}
 			$param = $params[$i++];
-			if (
-				is_string($param)
-				&& (
-					preg_match('#[^\x09\x0A\x0D\x20-\x7E\xA0-\x{10FFFF}]#u', $param)
-					|| preg_last_error()
-				)
-			) {
+			if (is_string($param) && (preg_match('#[^\x09\x0A\x0D\x20-\x7E\xA0-\x{10FFFF}]#u', $param) || preg_last_error())) {
 				return '<i title="Length ' . strlen($param) . ' bytes">&lt;binary&gt;</i>';
 
 			} elseif (is_string($param)) {
@@ -142,9 +136,6 @@ class Helpers
 				}
 				return '<i' . (isset($info['uri']) ? ' title="' . htmlspecialchars($info['uri'], ENT_NOQUOTES, 'UTF-8') . '"' : null)
 					. '>&lt;' . htmlspecialchars($type, ENT_NOQUOTES, 'UTF-8') . ' resource&gt;</i> ';
-
-			} elseif (is_bool($param)) {
-				return (string) (int) $param;
 
 			} else {
 				return htmlspecialchars((string) $param, ENT_NOQUOTES, 'UTF-8');
@@ -193,7 +184,7 @@ class Helpers
 
 	/**
 	 * Import SQL dump from file - extremely fast.
-	 * @param  callable&callable(int $count, ?float $percent): void  $onProgress
+	 * @param  callable  $onProgress  function (int $count, ?float $percent): void
 	 * @return int  count of commands
 	 */
 	public static function loadFromFile(Connection $connection, string $file, callable $onProgress = null): int
@@ -240,17 +231,12 @@ class Helpers
 	}
 
 
-	public static function createDebugPanel(
-		$connection,
-		bool $explain,
-		string $name,
-		Tracy\Bar $bar,
-		Tracy\BlueScreen $blueScreen
-	): Nette\Bridges\DatabaseTracy\ConnectionPanel {
-		$panel = new Nette\Bridges\DatabaseTracy\ConnectionPanel($connection, $blueScreen);
+	public static function createDebugPanel($connection, bool $explain = true, string $name = null): Nette\Bridges\DatabaseTracy\ConnectionPanel
+	{
+		$panel = new Nette\Bridges\DatabaseTracy\ConnectionPanel($connection);
 		$panel->explain = $explain;
 		$panel->name = $name;
-		$bar->addPanel($panel);
+		Tracy\Debugger::getBar()->addPanel($panel);
 		return $panel;
 	}
 

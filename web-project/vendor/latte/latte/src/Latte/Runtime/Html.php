@@ -15,7 +15,7 @@ use Latte;
 /**
  * HTML literal.
  */
-class Html implements HtmlStringable
+class Html implements IHtmlString
 {
 	use Latte\Strict;
 

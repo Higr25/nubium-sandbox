@@ -27,14 +27,11 @@ trait Base
 	/** @var callable|null */
 	private $before;
 
-	/** @var array[] */
+	/** @var callable[] */
 	private $asserts = [];
 
 	/** @var string|null */
 	private $castTo;
-
-	/** @var string|null */
-	private $deprecated;
 
 
 	public function default($value): self
@@ -44,9 +41,9 @@ trait Base
 	}
 
 
-	public function required(bool $state = true): self
+	public function required(): self
 	{
-		$this->required = $state;
+		$this->required = true;
 		return $this;
 	}
 
@@ -65,17 +62,9 @@ trait Base
 	}
 
 
-	public function assert(callable $handler, string $description = null): self
+	public function assert(callable $handler): self
 	{
-		$this->asserts[] = [$handler, $description];
-		return $this;
-	}
-
-
-	/** Marks as deprecated */
-	public function deprecated(string $message = 'The item %path% is deprecated.'): self
-	{
-		$this->deprecated = $message;
+		$this->asserts[] = $handler;
 		return $this;
 	}
 
@@ -83,10 +72,7 @@ trait Base
 	public function completeDefault(Context $context)
 	{
 		if ($this->required) {
-			$context->addError(
-				'The mandatory item %path% is missing.',
-				Nette\Schema\Message::MISSING_ITEM
-			);
+			$context->addError('The mandatory option %path% is missing.');
 			return null;
 		}
 		return $this->default;
@@ -102,66 +88,15 @@ trait Base
 	}
 
 
-	private function doDeprecation(Context $context): void
-	{
-		if ($this->deprecated !== null) {
-			$context->addWarning(
-				$this->deprecated,
-				Nette\Schema\Message::DEPRECATED
-			);
-		}
-	}
-
-
 	private function doValidate($value, string $expected, Context $context): bool
 	{
-		if (!Nette\Utils\Validators::is($value, $expected)) {
-			$expected = str_replace(['|', ':'], [' or ', ' in range '], $expected);
-			$context->addError(
-				'The %label% %path% expects to be %expected%, %value% given.',
-				Nette\Schema\Message::TYPE_MISMATCH,
-				['value' => $value, 'expected' => $expected]
-			);
+		try {
+			Nette\Utils\Validators::assert($value, $expected, 'option %path%');
+			return true;
+		} catch (Nette\Utils\AssertionException $e) {
+			$context->addError($e->getMessage(), $expected);
 			return false;
 		}
-		return true;
-	}
-
-
-	private function doValidateRange($value, array $range, Context $context, string $types = ''): bool
-	{
-		if (is_array($value) || is_string($value)) {
-			[$length, $label] = is_array($value)
-				? [count($value), 'items']
-				: (in_array('unicode', explode('|', $types), true)
-					? [Nette\Utils\Strings::length($value), 'characters']
-					: [strlen($value), 'bytes']);
-
-			if (!self::isInRange($length, $range)) {
-				$context->addError(
-					"The length of %label% %path% expects to be in range %expected%, %length% $label given.",
-					Nette\Schema\Message::LENGTH_OUT_OF_RANGE,
-					['value' => $value, 'length' => $length, 'expected' => implode('..', $range)]
-				);
-				return false;
-			}
-
-		} elseif ((is_int($value) || is_float($value)) && !self::isInRange($value, $range)) {
-			$context->addError(
-				'The %label% %path% expects to be in range %expected%, %value% given.',
-				Nette\Schema\Message::VALUE_OUT_OF_RANGE,
-				['value' => $value, 'expected' => implode('..', $range)]
-			);
-			return false;
-		}
-		return true;
-	}
-
-
-	private function isInRange($value, array $range): bool
-	{
-		return ($range[0] === null || $value >= $range[0])
-			&& ($range[1] === null || $value <= $range[1]);
 	}
 
 
@@ -175,18 +110,28 @@ trait Base
 			}
 		}
 
-		foreach ($this->asserts as $i => [$handler, $description]) {
-			if (!$handler($value)) {
-				$expected = $description ?: (is_string($handler) ? "$handler()" : "#$i");
-				$context->addError(
-					'Failed assertion ' . ($description ? "'%assertion%'" : '%assertion%') . ' for %label% %path% with value %value%.',
-					Nette\Schema\Message::FAILED_ASSERTION,
-					['value' => $value, 'assertion' => $expected]
-				);
+		foreach ($this->asserts as $i => $assert) {
+			if (!$assert($value)) {
+				$expected = is_string($assert) ? "$assert()" : "#$i";
+				$context->addError("Failed assertion $expected for option %path% with value " . static::formatValue($value) . '.');
 				return;
 			}
 		}
 
 		return $value;
+	}
+
+
+	private static function formatValue($value): string
+	{
+		if (is_string($value)) {
+			return "'$value'";
+		} elseif (is_bool($value)) {
+			return $value ? 'true' : 'false';
+		} elseif (is_scalar($value)) {
+			return (string) $value;
+		} else {
+			return strtolower(gettype($value));
+		}
 	}
 }

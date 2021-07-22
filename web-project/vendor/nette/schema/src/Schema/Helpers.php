@@ -57,8 +57,8 @@ final class Helpers
 
 	public static function getPropertyType(\ReflectionProperty $prop): ?string
 	{
-		if ($types = Reflection::getPropertyTypes($prop)) {
-			return implode('|', $types);
+		if ($type = Reflection::getPropertyType($prop)) {
+			return ($prop->getType()->allowsNull() ? '?' : '') . $type;
 		} elseif ($type = preg_replace('#\s.*#', '', (string) self::parseAnnotation($prop, 'var'))) {
 			$class = Reflection::getPropertyDeclaringClass($prop);
 			return preg_replace_callback('#[\w\\\\]+#', function ($m) use ($class) {
@@ -71,7 +71,6 @@ final class Helpers
 
 	/**
 	 * Returns an annotation value.
-	 * @param  \ReflectionProperty  $ref
 	 */
 	public static function parseAnnotation(\Reflector $ref, string $name): ?string
 	{
@@ -83,22 +82,5 @@ final class Helpers
 			return $m[1] ?? '';
 		}
 		return null;
-	}
-
-
-	/**
-	 * @param  mixed  $value
-	 */
-	public static function formatValue($value): string
-	{
-		if (is_object($value)) {
-			return 'object ' . get_class($value);
-		} elseif (is_string($value)) {
-			return "'" . Nette\Utils\Strings::truncate($value, 15, '...') . "'";
-		} elseif (is_scalar($value)) {
-			return var_export($value, true);
-		} else {
-			return strtolower(gettype($value));
-		}
 	}
 }

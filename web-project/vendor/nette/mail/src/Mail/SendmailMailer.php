@@ -15,23 +15,12 @@ use Nette;
 /**
  * Sends emails via the PHP internal mail() function.
  */
-class SendmailMailer implements Mailer
+class SendmailMailer implements IMailer
 {
 	use Nette\SmartObject;
 
 	/** @var string|null */
 	public $commandArgs;
-
-	/** @var Signer|null */
-	private $signer;
-
-
-	/** @return static */
-	public function setSigner(Signer $signer): self
-	{
-		$this->signer = $signer;
-		return $this;
-	}
 
 
 	/**
@@ -47,14 +36,11 @@ class SendmailMailer implements Mailer
 		$tmp->setHeader('Subject', null);
 		$tmp->setHeader('To', null);
 
-		$data = $this->signer
-			? $this->signer->generateSignedMessage($tmp)
-			: $tmp->generateMessage();
-		$parts = explode(Message::EOL . Message::EOL, $data, 2);
+		$parts = explode(Message::EOL . Message::EOL, $tmp->generateMessage(), 2);
 
 		$args = [
-			str_replace(Message::EOL, PHP_EOL, (string) $mail->getEncodedHeader('To')),
-			str_replace(Message::EOL, PHP_EOL, (string) $mail->getEncodedHeader('Subject')),
+			str_replace(Message::EOL, PHP_EOL, $mail->getEncodedHeader('To')),
+			str_replace(Message::EOL, PHP_EOL, $mail->getEncodedHeader('Subject')),
 			str_replace(Message::EOL, PHP_EOL, $parts[1]),
 			str_replace(Message::EOL, PHP_EOL, $parts[0]),
 		];

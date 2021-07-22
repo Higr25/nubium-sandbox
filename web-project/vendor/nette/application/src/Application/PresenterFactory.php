@@ -33,7 +33,7 @@ class PresenterFactory implements IPresenterFactory
 
 
 	/**
-	 * @param  callable(string): IPresenter  $factory
+	 * @param  callable  $factory  function (string $class): IPresenter
 	 */
 	public function __construct(callable $factory = null)
 	{
@@ -60,7 +60,7 @@ class PresenterFactory implements IPresenterFactory
 			return $this->cache[$name];
 		}
 
-		if (!Nette\Utils\Strings::match($name, '#^[a-zA-Z\x7f-\xff][a-zA-Z0-9\x7f-\xff:]*$#D')) {
+		if (!Nette\Utils\Strings::match($name, '#^[a-zA-Z\x7f-\xff][a-zA-Z0-9\x7f-\xff:]*\z#')) {
 			throw new InvalidPresenterException("Presenter name must be alphanumeric string, '$name' is invalid.");
 		}
 
@@ -78,7 +78,14 @@ class PresenterFactory implements IPresenterFactory
 			throw new InvalidPresenterException("Cannot load presenter '$name', class '$class' is abstract.");
 		}
 
-		return $this->cache[$name] = $class;
+		$this->cache[$name] = $class;
+
+		if ($name !== ($realName = $this->unformatPresenterClass($class))) {
+			trigger_error("Case mismatch on presenter name '$name', correct name is '$realName'.", E_USER_WARNING);
+			$name = $realName;
+		}
+
+		return $class;
 	}
 
 
@@ -90,7 +97,7 @@ class PresenterFactory implements IPresenterFactory
 	{
 		foreach ($mapping as $module => $mask) {
 			if (is_string($mask)) {
-				if (!preg_match('#^\\\\?([\w\\\\]*\\\\)?(\w*\*\w*?\\\\)?([\w\\\\]*\*\w*)$#D', $mask, $m)) {
+				if (!preg_match('#^\\\\?([\w\\\\]*\\\\)?(\w*\*\w*?\\\\)?([\w\\\\]*\*\w*)\z#', $mask, $m)) {
 					throw new Nette\InvalidStateException("Invalid mapping mask '$mask'.");
 				}
 				$this->mapping[$module] = [$m[1], $m[2] ?: '*Module\\', $m[3]];
@@ -128,10 +135,9 @@ class PresenterFactory implements IPresenterFactory
 	 */
 	public function unformatPresenterClass(string $class): ?string
 	{
-		trigger_error(__METHOD__ . '() is deprecated.', E_USER_DEPRECATED);
 		foreach ($this->mapping as $module => $mapping) {
 			$mapping = str_replace(['\\', '*'], ['\\\\', '(\w+)'], $mapping);
-			if (preg_match("#^\\\\?$mapping[0]((?:$mapping[1])*)$mapping[2]$#Di", $class, $matches)) {
+			if (preg_match("#^\\\\?$mapping[0]((?:$mapping[1])*)$mapping[2]\\z#i", $class, $matches)) {
 				return ($module === '*' ? '' : $module . ':')
 					. preg_replace("#$mapping[1]#iA", '$1:', $matches[1]) . $matches[3];
 			}

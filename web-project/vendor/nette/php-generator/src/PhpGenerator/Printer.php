@@ -24,13 +24,7 @@ class Printer
 	protected $indentation = "\t";
 
 	/** @var int */
-	protected $linesBetweenProperties = 0;
-
-	/** @var int */
 	protected $linesBetweenMethods = 2;
-
-	/** @var string */
-	protected $returnTypeColon = ': ';
 
 	/** @var bool */
 	private $resolveTypes = true;
@@ -38,16 +32,12 @@ class Printer
 
 	public function printFunction(GlobalFunction $function, PhpNamespace $namespace = null): string
 	{
-		$line = 'function '
-			. ($function->getReturnReference() ? '&' : '')
-			. $function->getName();
-		$returnType = $this->printReturnType($function, $namespace);
-
 		return Helpers::formatDocComment($function->getComment() . "\n")
-			. self::printAttributes($function->getAttributes(), $namespace)
-			. $line
-			. $this->printParameters($function, $namespace, strlen($line) + strlen($returnType) + 2) // 2 = parentheses
-			. $returnType
+			. 'function '
+			. ($function->getReturnReference() ? '&' : '')
+			. $function->getName()
+			. $this->printParameters($function, $namespace)
+			. $this->printReturnType($function, $namespace)
 			. "\n{\n" . $this->indent(ltrim(rtrim($function->getBody()) . "\n")) . "}\n";
 	}
 
@@ -58,12 +48,11 @@ class Printer
 		foreach ($closure->getUses() as $param) {
 			$uses[] = ($param->isReference() ? '&' : '') . '$' . $param->getName();
 		}
-		$useStr = strlen($tmp = implode(', ', $uses)) > (new Dumper)->wrapLength && count($uses) > 1
+		$useStr = strlen($tmp = implode(', ', $uses)) > Helpers::WRAP_LENGTH && count($uses) > 1
 			? "\n" . $this->indentation . implode(",\n" . $this->indentation, $uses) . "\n"
 			: $tmp;
 
-		return self::printAttributes($closure->getAttributes(), null, true)
-			. 'function '
+		return 'function '
 			. ($closure->getReturnReference() ? '&' : '')
 			. $this->printParameters($closure, null)
 			. ($uses ? " use ($useStr)" : '')
@@ -72,40 +61,19 @@ class Printer
 	}
 
 
-	public function printArrowFunction(Closure $closure): string
-	{
-		foreach ($closure->getUses() as $use) {
-			if ($use->isReference()) {
-				throw new Nette\InvalidArgumentException('Arrow function cannot bind variables by-reference.');
-			}
-		}
-
-		return self::printAttributes($closure->getAttributes(), null)
-			. 'fn '
-			. ($closure->getReturnReference() ? '&' : '')
-			. $this->printParameters($closure, null)
-			. $this->printReturnType($closure, null)
-			. ' => ' . trim($closure->getBody()) . ';';
-	}
-
-
 	public function printMethod(Method $method, PhpNamespace $namespace = null): string
 	{
 		$method->validate();
-		$line = ($method->isAbstract() ? 'abstract ' : '')
+		return Helpers::formatDocComment($method->getComment() . "\n")
+			. ($method->isAbstract() ? 'abstract ' : '')
 			. ($method->isFinal() ? 'final ' : '')
 			. ($method->getVisibility() ? $method->getVisibility() . ' ' : '')
 			. ($method->isStatic() ? 'static ' : '')
 			. 'function '
 			. ($method->getReturnReference() ? '&' : '')
-			. $method->getName();
-		$returnType = $this->printReturnType($method, $namespace);
-
-		return Helpers::formatDocComment($method->getComment() . "\n")
-			. self::printAttributes($method->getAttributes(), $namespace)
-			. $line
-			. ($params = $this->printParameters($method, $namespace, strlen($line) + strlen($returnType) + strlen($this->indentation) + 2)) // 2 = parentheses
-			. $returnType
+			. $method->getName()
+			. ($params = $this->printParameters($method, $namespace))
+			. $this->printReturnType($method, $namespace)
 			. ($method->isAbstract() || $method->getBody() === null
 				? ";\n"
 				: (strpos($params, "\n") === false ? "\n" : ' ')
@@ -118,9 +86,7 @@ class Printer
 	public function printClass(ClassType $class, PhpNamespace $namespace = null): string
 	{
 		$class->validate();
-		$resolver = $this->resolveTypes && $namespace
-			? [$namespace, 'unresolveUnionType']
-			: function ($s) { return $s; };
+		$resolver = $this->resolveTypes && $namespace ? [$namespace, 'unresolveName'] : function ($s) { return $s; };
 
 		$traits = [];
 		foreach ($class->getTraitResolutions() as $trait => $resolutions) {
@@ -130,24 +96,16 @@ class Printer
 
 		$consts = [];
 		foreach ($class->getConstants() as $const) {
-			$def = ($const->getVisibility() ? $const->getVisibility() . ' ' : '') . 'const ' . $const->getName() . ' = ';
 			$consts[] = Helpers::formatDocComment((string) $const->getComment())
-				. self::printAttributes($const->getAttributes(), $namespace)
-				. $def
-				. $this->dump($const->getValue(), strlen($def)) . ";\n";
+				. ($const->getVisibility() ? $const->getVisibility() . ' ' : '')
+				. 'const ' . $const->getName() . ' = ' . Helpers::dump($const->getValue()) . ";\n";
 		}
 
 		$properties = [];
 		foreach ($class->getProperties() as $property) {
-			$type = $property->getType();
-			$def = (($property->getVisibility() ?: 'public') . ($property->isStatic() ? ' static' : '') . ' '
-				. ltrim($this->printType($type, $property->isNullable(), $namespace) . ' ')
-				. '$' . $property->getName());
-
 			$properties[] = Helpers::formatDocComment((string) $property->getComment())
-				. self::printAttributes($property->getAttributes(), $namespace)
-				. $def
-				. ($property->getValue() === null && !$property->isInitialized() ? '' : ' = ' . $this->dump($property->getValue(), strlen($def) + 3)) // 3 = ' = '
+				. ($property->getVisibility() ?: 'public') . ($property->isStatic() ? ' static' : '') . ' $' . $property->getName()
+				. ($property->getValue() === null ? '' : ' = ' . Helpers::dump($property->getValue()))
 				. ";\n";
 		}
 
@@ -158,15 +116,14 @@ class Printer
 
 		$members = array_filter([
 			implode('', $traits),
-			$this->joinProperties($consts),
-			$this->joinProperties($properties),
+			implode('', $consts),
+			implode("\n", $properties),
 			($methods && $properties ? str_repeat("\n", $this->linesBetweenMethods - 1) : '')
 			. implode(str_repeat("\n", $this->linesBetweenMethods), $methods),
 		]);
 
 		return Strings::normalize(
 			Helpers::formatDocComment($class->getComment() . "\n")
-			. self::printAttributes($class->getAttributes(), $namespace)
 			. ($class->isAbstract() ? 'abstract ' : '')
 			. ($class->isFinal() ? 'final ' : '')
 			. ($class->getName() ? $class->getType() . ' ' . $class->getName() . ' ' : '')
@@ -182,17 +139,27 @@ class Printer
 	public function printNamespace(PhpNamespace $namespace): string
 	{
 		$name = $namespace->getName();
-		$uses = $this->printUses($namespace);
+
+		$uses = [];
+		foreach ($namespace->getUses() as $alias => $original) {
+			if ($original !== ($name ? $name . '\\' . $alias : $alias)) {
+				if ($alias === $original || substr($original, -(strlen($alias) + 1)) === '\\' . $alias) {
+					$uses[] = "use $original;";
+				} else {
+					$uses[] = "use $original as $alias;";
+				}
+			}
+		}
 
 		$classes = [];
 		foreach ($namespace->getClasses() as $class) {
 			$classes[] = $this->printClass($class, $namespace);
 		}
 
-		$body = ($uses ? $uses . "\n\n" : '')
+		$body = ($uses ? implode("\n", $uses) . "\n\n" : '')
 			. implode("\n", $classes);
 
-		if ($namespace->hasBracketedSyntax()) {
+		if ($namespace->getBracketedSyntax()) {
 			return 'namespace' . ($name ? " $name" : '') . "\n{\n"
 				. $this->indent($body)
 				. "}\n";
@@ -215,13 +182,15 @@ class Printer
 			"<?php\n"
 			. ($file->getComment() ? "\n" . Helpers::formatDocComment($file->getComment() . "\n") : '')
 			. "\n"
-			. ($file->hasStrictTypes() ? "declare(strict_types=1);\n\n" : '')
+			. ($file->getStrictTypes() ? "declare(strict_types=1);\n\n" : '')
 			. implode("\n\n", $namespaces)
 		) . "\n";
 	}
 
 
-	/** @return static */
+	/**
+	 * @return static
+	 */
 	public function setTypeResolving(bool $state = true): self
 	{
 		$this->resolveTypes = $state;
@@ -231,114 +200,40 @@ class Printer
 
 	protected function indent(string $s): string
 	{
-		$s = str_replace("\t", $this->indentation, $s);
 		return Strings::indent($s, 1, $this->indentation);
 	}
 
 
-	protected function dump($var, int $column = 0): string
-	{
-		return (new Dumper)->dump($var, $column);
-	}
-
-
-	protected function printUses(PhpNamespace $namespace): string
-	{
-		$name = $namespace->getName();
-		$uses = [];
-		foreach ($namespace->getUses() as $alias => $original) {
-			if ($original !== ($name ? $name . '\\' . $alias : $alias)) {
-				$uses[] = $alias === $original || substr($original, -(strlen($alias) + 1)) === '\\' . $alias
-					? "use $original;"
-					: "use $original as $alias;";
-			}
-		}
-		return implode("\n", $uses);
-	}
-
-
 	/**
-	 * @param Closure|GlobalFunction|Method  $function
+	 * @param Nette\PhpGenerator\Traits\FunctionLike  $function
 	 */
-	public function printParameters($function, PhpNamespace $namespace = null, int $column = 0): string
+	protected function printParameters($function, ?PhpNamespace $namespace): string
 	{
 		$params = [];
 		$list = $function->getParameters();
-		$special = false;
-
 		foreach ($list as $param) {
 			$variadic = $function->isVariadic() && $param === end($list);
-			$type = $param->getType();
-			$promoted = $param instanceof PromotedParameter ? $param : null;
-			$params[] =
-				($promoted ? Helpers::formatDocComment((string) $promoted->getComment()) : '')
-				. ($attrs = self::printAttributes($param->getAttributes(), $namespace, true))
-				. ($promoted ? ($promoted->getVisibility() ?: 'public') . ' ' : '')
-				. ltrim($this->printType($type, $param->isNullable(), $namespace) . ' ')
+			$hint = $param->getTypeHint();
+			$params[] = ($hint ? ($param->isNullable() ? '?' : '') . ($this->resolveTypes && $namespace ? $namespace->unresolveName($hint) : $hint) . ' ' : '')
 				. ($param->isReference() ? '&' : '')
 				. ($variadic ? '...' : '')
 				. '$' . $param->getName()
-				. ($param->hasDefaultValue() && !$variadic ? ' = ' . $this->dump($param->getDefaultValue()) : '');
-
-			$special = $special || $promoted || $attrs;
+				. ($param->hasDefaultValue() && !$variadic ? ' = ' . Helpers::dump($param->getDefaultValue()) : '');
 		}
 
-		$line = implode(', ', $params);
-
-		return count($params) > 1 && ($special || strlen($line) + $column > (new Dumper)->wrapLength)
-			? "(\n" . $this->indent(implode(",\n", $params)) . ($special ? ',' : '') . "\n)"
-			: "($line)";
-	}
-
-
-	public function printType(?string $type, bool $nullable = false, PhpNamespace $namespace = null): string
-	{
-		if ($type === null) {
-			return '';
-		}
-		if ($this->resolveTypes && $namespace) {
-			$type = $namespace->unresolveUnionType($type);
-		}
-		if ($nullable && strcasecmp($type, 'mixed')) {
-			$type = strpos($type, '|') === false
-				? '?' . $type
-				: $type . '|null';
-		}
-		return $type;
+		return strlen($tmp = implode(', ', $params)) > Helpers::WRAP_LENGTH && count($params) > 1
+			? "(\n" . $this->indentation . implode(",\n" . $this->indentation, $params) . "\n)"
+			: "($tmp)";
 	}
 
 
 	/**
-	 * @param Closure|GlobalFunction|Method  $function
+	 * @param Nette\PhpGenerator\Traits\FunctionLike  $function
 	 */
-	private function printReturnType($function, ?PhpNamespace $namespace): string
+	protected function printReturnType($function, ?PhpNamespace $namespace): string
 	{
-		return ($tmp = $this->printType($function->getReturnType(), $function->isReturnNullable(), $namespace))
-			? $this->returnTypeColon . $tmp
+		return $function->getReturnType()
+			? ': ' . ($function->getReturnNullable() ? '?' : '') . ($this->resolveTypes && $namespace ? $namespace->unresolveName($function->getReturnType()) : $function->getReturnType())
 			: '';
-	}
-
-
-	private function printAttributes(array $attrs, ?PhpNamespace $namespace, bool $inline = false): string
-	{
-		if (!$attrs) {
-			return '';
-		}
-		$items = [];
-		foreach ($attrs as $attr) {
-			$args = (new Dumper)->format('...?:', $attr->getArguments());
-			$items[] = $this->printType($attr->getName(), false, $namespace) . ($args ? "($args)" : '');
-		}
-		return $inline
-			? '#[' . implode(', ', $items) . '] '
-			: '#[' . implode("]\n#[", $items) . "]\n";
-	}
-
-
-	private function joinProperties(array $props)
-	{
-		return $this->linesBetweenProperties
-			? implode(str_repeat("\n", $this->linesBetweenProperties), $props)
-			: preg_replace('#^(\w.*\n)\n(?=\w.*;)#m', '$1', implode("\n", $props));
 	}
 }

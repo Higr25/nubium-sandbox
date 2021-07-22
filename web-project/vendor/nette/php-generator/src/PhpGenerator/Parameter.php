@@ -13,21 +13,20 @@ use Nette;
 
 
 /**
- * Function/Method parameter description.
+ * Method parameter description.
  *
  * @property mixed $defaultValue
  */
-class Parameter
+final class Parameter
 {
 	use Nette\SmartObject;
 	use Traits\NameAware;
-	use Traits\AttributeAware;
 
 	/** @var bool */
 	private $reference = false;
 
 	/** @var string|null */
-	private $type;
+	private $typeHint;
 
 	/** @var bool */
 	private $nullable = false;
@@ -39,7 +38,9 @@ class Parameter
 	private $defaultValue;
 
 
-	/** @return static */
+	/**
+	 * @return static
+	 */
 	public function setReference(bool $state = true): self
 	{
 		$this->reference = $state;
@@ -53,32 +54,19 @@ class Parameter
 	}
 
 
-	/** @return static */
-	public function setType(?string $type): self
+	/**
+	 * @return static
+	 */
+	public function setTypeHint(?string $hint): self
 	{
-		$this->type = $type;
+		$this->typeHint = $hint;
 		return $this;
 	}
 
 
-	public function getType(): ?string
-	{
-		return $this->type;
-	}
-
-
-	/** @deprecated  use setType() */
-	public function setTypeHint(?string $type): self
-	{
-		$this->type = $type;
-		return $this;
-	}
-
-
-	/** @deprecated  use getType() */
 	public function getTypeHint(): ?string
 	{
-		return $this->type;
+		return $this->typeHint;
 	}
 
 
@@ -94,7 +82,9 @@ class Parameter
 	}
 
 
-	/** @return static */
+	/**
+	 * @return static
+	 */
 	public function setNullable(bool $state = true): self
 	{
 		$this->nullable = $state;
@@ -108,7 +98,9 @@ class Parameter
 	}
 
 
-	/** @return static */
+	/**
+	 * @return static
+	 */
 	public function setDefaultValue($val): self
 	{
 		$this->defaultValue = $val;

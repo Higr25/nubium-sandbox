@@ -36,7 +36,7 @@ class DatabaseExtension extends Nette\DI\CompilerExtension
 				'user' => Expect::string()->nullable()->dynamic(),
 				'password' => Expect::string()->nullable()->dynamic(),
 				'options' => Expect::array(),
-				'debugger' => Expect::bool(),
+				'debugger' => Expect::bool(true),
 				'explain' => Expect::bool(true),
 				'reflection' => Expect::string(), // BC
 				'conventions' => Expect::string('discovered'), // Nette\Database\Conventions\DiscoveredConventions
@@ -61,33 +61,15 @@ class DatabaseExtension extends Nette\DI\CompilerExtension
 	}
 
 
-	public function beforeCompile()
-	{
-		$builder = $this->getContainerBuilder();
-
-		foreach ($this->config as $name => $config) {
-			if ($config->debugger ?? $builder->getByType(\Tracy\BlueScreen::class)) {
-				$connection = $builder->getDefinition($this->prefix("$name.connection"));
-				$connection->addSetup('@Tracy\BlueScreen::addPanel', [
-					[Nette\Bridges\DatabaseTracy\ConnectionPanel::class, 'renderException'],
-				]);
-				if ($this->debugMode) {
-					$connection->addSetup([Nette\Database\Helpers::class, 'createDebugPanel'], [$connection, !empty($config->explain), $name]);
-				}
-			}
-		}
-	}
-
-
 	private function setupDatabase(\stdClass $config, string $name): void
 	{
 		$builder = $this->getContainerBuilder();
 
 		foreach ($config->options as $key => $value) {
-			if (is_string($value) && preg_match('#^PDO::\w+$#D', $value)) {
+			if (is_string($value) && preg_match('#^PDO::\w+\z#', $value)) {
 				$config->options[$key] = $value = constant($value);
 			}
-			if (preg_match('#^PDO::\w+$#D', $key)) {
+			if (preg_match('#^PDO::\w+\z#', $key)) {
 				unset($config->options[$key]);
 				$config->options[constant($key)] = $value;
 			}
@@ -117,19 +99,28 @@ class DatabaseExtension extends Nette\DI\CompilerExtension
 
 		} elseif (is_string($config->conventions)) {
 			$conventions = $builder->addDefinition($this->prefix("$name.$conventionsServiceName"))
-				->setFactory(preg_match('#^[a-z]+$#Di', $config->conventions)
+				->setFactory(preg_match('#^[a-z]+\z#i', $config->conventions)
 					? 'Nette\Database\Conventions\\' . ucfirst($config->conventions) . 'Conventions'
 					: $config->conventions)
 				->setArguments(strtolower($config->conventions) === 'discovered' ? [$structure] : [])
 				->setAutowired($config->autowired);
 
 		} else {
-			$conventions = Nette\DI\Helpers::filterArguments([$config->conventions])[0];
+			$conventions = Nette\DI\Config\Processor::processArguments([$config['conventions']])[0];
 		}
 
 		$builder->addDefinition($this->prefix("$name.context"))
-			->setFactory(Nette\Database\Explorer::class, [$connection, $structure, $conventions])
+			->setFactory(Nette\Database\Context::class, [$connection, $structure, $conventions])
 			->setAutowired($config->autowired);
+
+		if ($config->debugger) {
+			$connection->addSetup('@Tracy\BlueScreen::addPanel', [
+				[Nette\Bridges\DatabaseTracy\ConnectionPanel::class, 'renderException'],
+			]);
+			if ($this->debugMode) {
+				$connection->addSetup([Nette\Database\Helpers::class, 'createDebugPanel'], [$connection, !empty($config->explain), $name]);
+			}
+		}
 
 		if ($this->name === 'database') {
 			$builder->addAlias($this->prefix($name), $this->prefix("$name.connection"));

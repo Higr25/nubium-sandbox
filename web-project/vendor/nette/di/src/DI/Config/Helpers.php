@@ -35,6 +35,7 @@ final class Helpers
 
 	/**
 	 * Return true if array prevents merging and removes this information.
+	 * @return mixed
 	 */
 	public static function takeParent(&$data): bool
 	{

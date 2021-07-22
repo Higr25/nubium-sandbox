@@ -10,7 +10,6 @@ declare(strict_types=1);
 namespace Nette\Database;
 
 use Nette;
-use Nette\Utils\Arrays;
 use PDO;
 use PDOException;
 
@@ -22,11 +21,11 @@ class Connection
 {
 	use Nette\SmartObject;
 
-	/** @var callable[]&(callable(Connection $connection): void)[]; Occurs after connection is established */
-	public $onConnect = [];
+	/** @var callable[]  function (Connection $connection): void; Occurs after connection is established */
+	public $onConnect;
 
-	/** @var callable[]&(callable(Connection $connection, ResultSet|DriverException $result): void)[]; Occurs after query is executed */
-	public $onQuery = [];
+	/** @var callable[]  function (Connection $connection, ResultSet|DriverException $result): void; Occurs after query is executed */
+	public $onQuery;
 
 	/** @var array */
 	private $params;
@@ -34,13 +33,13 @@ class Connection
 	/** @var array */
 	private $options;
 
-	/** @var Driver */
+	/** @var ISupplementalDriver */
 	private $driver;
 
 	/** @var SqlPreprocessor */
 	private $preprocessor;
 
-	/** @var PDO|null */
+	/** @var PDO */
 	private $pdo;
 
 	/** @var string|null */
@@ -77,7 +76,7 @@ class Connection
 		$this->driver = new $class;
 		$this->preprocessor = new SqlPreprocessor($this);
 		$this->driver->initialize($this, $this->options);
-		Arrays::invoke($this->onConnect, $this);
+		$this->onConnect($this);
 	}
 
 
@@ -107,15 +106,7 @@ class Connection
 	}
 
 
-	public function getDriver(): Driver
-	{
-		$this->connect();
-		return $this->driver;
-	}
-
-
-	/** @deprecated use getDriver() */
-	public function getSupplementalDriver(): Driver
+	public function getSupplementalDriver(): ISupplementalDriver
 	{
 		$this->connect();
 		return $this->driver;
@@ -162,23 +153,6 @@ class Connection
 
 
 	/**
-	 * @return mixed
-	 */
-	public function transaction(callable $callback)
-	{
-		$this->beginTransaction();
-		try {
-			$res = $callback();
-		} catch (\Throwable $e) {
-			$this->rollBack();
-			throw $e;
-		}
-		$this->commit();
-		return $res;
-	}
-
-
-	/**
 	 * Generates and executes SQL query.
 	 */
 	public function query(string $sql, ...$params): ResultSet
@@ -187,10 +161,10 @@ class Connection
 		try {
 			$result = new ResultSet($this, $this->sql, $params);
 		} catch (PDOException $e) {
-			Arrays::invoke($this->onQuery, $this, $e);
+			$this->onQuery($this, $e);
 			throw $e;
 		}
-		Arrays::invoke($this->onQuery, $this, $result);
+		$this->onQuery($this, $result);
 		return $result;
 	}
 

@@ -4,10 +4,7 @@ declare(strict_types=1);
 
 require __DIR__ . '/vendor/autoload.php';
 
-//phpinfo();
-//die();
-
-App\Bootstrap::boot()
+App\Booting::boot()
 	->createContainer()
 	->getByType(Nette\Application\Application::class)
 	->run();

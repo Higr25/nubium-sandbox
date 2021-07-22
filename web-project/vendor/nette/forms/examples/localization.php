@@ -19,7 +19,7 @@ use Tracy\Dumper;
 Debugger::enable();
 
 
-class MyTranslator implements Nette\Localization\Translator
+class MyTranslator implements Nette\Localization\ITranslator
 {
 	private $table;
 
@@ -84,6 +84,6 @@ if ($form->isSuccess()) {
 
 <h1>Nette Forms localization example</h1>
 
-<?php $form->render() ?>
+<?php echo $form ?>
 
 <footer><a href="https://doc.nette.org/en/forms">see documentation</a></footer>

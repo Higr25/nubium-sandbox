@@ -6,6 +6,4 @@ $vendorDir = dirname(dirname(__FILE__));
 $baseDir = dirname($vendorDir);
 
 return array(
-    'Symfony\\Thanks\\' => array($vendorDir . '/symfony/thanks/src'),
-    'App\\' => array($baseDir . '/app'),
 );

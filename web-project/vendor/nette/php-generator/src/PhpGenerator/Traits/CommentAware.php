@@ -19,7 +19,9 @@ trait CommentAware
 	private $comment;
 
 
-	/** @return static */
+	/**
+	 * @return static
+	 */
 	public function setComment(?string $val): self
 	{
 		$this->comment = $val;
@@ -33,7 +35,9 @@ trait CommentAware
 	}
 
 
-	/** @return static */
+	/**
+	 * @return static
+	 */
 	public function addComment(string $val): self
 	{
 		$this->comment .= $this->comment ? "\n$val" : $val;

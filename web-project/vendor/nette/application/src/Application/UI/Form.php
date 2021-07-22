@@ -15,13 +15,10 @@ use Nette;
 /**
  * Web form adapted for Presenter.
  */
-class Form extends Nette\Forms\Form implements SignalReceiver
+class Form extends Nette\Forms\Form implements ISignalReceiver
 {
-	/** @var array<callable(self): void>  Occurs when form is attached to presenter */
-	public $onAnchor = [];
-
-	/** @var bool */
-	protected $crossOrigin = false;
+	/** @var callable[]  function (Form $sender): void; Occurs when form is attached to presenter */
+	public $onAnchor;
 
 
 	/**
@@ -57,7 +54,7 @@ class Form extends Nette\Forms\Form implements SignalReceiver
 				}
 			}
 
-			Nette\Utils\Arrays::invoke($this->onAnchor, $this);
+			$this->onAnchor($this);
 		});
 	}
 
@@ -68,7 +65,7 @@ class Form extends Nette\Forms\Form implements SignalReceiver
 	final public function getPresenter(): ?Presenter
 	{
 		if (func_num_args()) {
-			trigger_error(__METHOD__ . '() parameter $throw is deprecated, use getPresenterIfExists()', E_USER_DEPRECATED);
+			trigger_error(__METHOD__ . '() parameter $throw is deprecated, use hasPresenter()', E_USER_DEPRECATED);
 			$throw = func_get_arg(0);
 		}
 		return $this->lookup(Presenter::class, $throw ?? true);
@@ -76,15 +73,8 @@ class Form extends Nette\Forms\Form implements SignalReceiver
 
 
 	/**
-	 * Returns the presenter where this component belongs to.
+	 * Returns whether there is a presenter.
 	 */
-	final public function getPresenterIfExists(): ?Presenter
-	{
-		return $this->lookup(Presenter::class, false);
-	}
-
-
-	/** @deprecated */
 	public function hasPresenter(): bool
 	{
 		return (bool) $this->lookup(Presenter::class, false);
@@ -97,22 +87,6 @@ class Form extends Nette\Forms\Form implements SignalReceiver
 	public function isAnchored(): bool
 	{
 		return $this->hasPresenter();
-	}
-
-
-	/**
-	 * Disables CSRF protection using a SameSite cookie.
-	 */
-	public function allowCrossOrigin(): void
-	{
-		$this->crossOrigin = true;
-	}
-
-
-	/** @deprecated  use allowCrossOrigin() */
-	public function disableSameSiteProtection(): void
-	{
-		$this->crossOrigin = true;
 	}
 
 
@@ -131,9 +105,11 @@ class Form extends Nette\Forms\Form implements SignalReceiver
 			return null;
 		}
 
-		return $this->isMethod('post')
-			? Nette\Utils\Arrays::mergeTree($request->getPost(), $request->getFiles())
-			: $request->getParameters();
+		if ($this->isMethod('post')) {
+			return Nette\Utils\Arrays::mergeTree($request->getPost(), $request->getFiles());
+		} else {
+			return $request->getParameters();
+		}
 	}
 
 
@@ -148,7 +124,7 @@ class Form extends Nette\Forms\Form implements SignalReceiver
 	}
 
 
-	/********************* interface SignalReceiver ****************d*g**/
+	/********************* interface ISignalReceiver ****************d*g**/
 
 
 	/**
@@ -157,10 +133,10 @@ class Form extends Nette\Forms\Form implements SignalReceiver
 	public function signalReceived(string $signal): void
 	{
 		if ($signal !== 'submit') {
-			$class = static::class;
+			$class = get_class($this);
 			throw new BadSignalException("Missing handler for signal '$signal' in $class.");
 
-		} elseif (!$this->crossOrigin && !$this->getPresenter()->getHttpRequest()->isSameSite()) {
+		} elseif (!$this->getPresenter()->getHttpRequest()->isSameSite()) {
 			$this->getPresenter()->detectedCsrf();
 
 		} elseif (!$this->getPresenter()->getRequest()->hasFlag(Nette\Application\Request::RESTORED)) {

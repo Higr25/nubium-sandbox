@@ -12,23 +12,18 @@
 
 .tracy-toggle {
 	cursor: pointer;
+	-webkit-user-select: none;
+	-moz-user-select: none;
+	-khtml-user-select: none;
+	-ms-user-select: none;
 	user-select: none;
 }
 
 .tracy-toggle:after {
-	content: '';
-	display: inline-block;
-	vertical-align: middle;
-	line-height: 0;
-	border-top: .6ex solid;
-	border-right: .6ex solid transparent;
-	border-left: .6ex solid transparent;
-	transform: scale(1, 1.5);
-	margin: 0 .2ex 0 .7ex;
-	transition: .1s transform;
-	opacity: .5;
+	content: "\A0\25BC";
+	opacity: .4;
 }
 
 .tracy-toggle.tracy-collapsed:after {
-	transform: rotate(-90deg) scale(1, 1.5) translate(.1ex, 0);
+	content: "\A0\25BA";
 }

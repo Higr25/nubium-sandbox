@@ -25,7 +25,7 @@ class SnippetDriver
 		TYPE_DYNAMIC = 'dynamic',
 		TYPE_AREA = 'area';
 
-	/** @var array<array{string, bool}> */
+	/** @var array */
 	private $stack = [];
 
 	/** @var int */
@@ -34,11 +34,11 @@ class SnippetDriver
 	/** @var bool */
 	private $renderingSnippets = false;
 
-	/** @var SnippetBridge */
+	/** @var ISnippetBridge */
 	private $bridge;
 
 
-	public function __construct(SnippetBridge $bridge)
+	public function __construct(ISnippetBridge $bridge)
 	{
 		$this->bridge = $bridge;
 	}
@@ -47,10 +47,6 @@ class SnippetDriver
 	public function enter(string $name, string $type): void
 	{
 		if (!$this->renderingSnippets) {
-			if ($type === self::TYPE_DYNAMIC && $this->nestingLevel === 0) {
-				trigger_error('Dynamic snippets are allowed only inside static snippet/snippetArea.', E_USER_WARNING);
-			}
-			$this->nestingLevel++;
 			return;
 		}
 		$obStarted = false;
@@ -72,7 +68,6 @@ class SnippetDriver
 	public function leave(): void
 	{
 		if (!$this->renderingSnippets) {
-			$this->nestingLevel--;
 			return;
 		}
 		[$name, $obStarted] = array_pop($this->stack);
@@ -91,10 +86,6 @@ class SnippetDriver
 	}
 
 
-	/**
-	 * @param  Block[]  $blocks
-	 * @param  mixed[]  $params
-	 */
 	public function renderSnippets(array $blocks, array $params): bool
 	{
 		if ($this->renderingSnippets || !$this->bridge->isSnippetMode()) {
@@ -102,11 +93,11 @@ class SnippetDriver
 		}
 		$this->renderingSnippets = true;
 		$this->bridge->setSnippetMode(false);
-		foreach ($blocks as $name => $block) {
-			if (!$this->bridge->needsRedraw($name)) {
+		foreach ($blocks as $name => $function) {
+			if ($name[0] !== '_' || !$this->bridge->needsRedraw(substr($name, 1))) {
 				continue;
 			}
-			$function = reset($block->functions);
+			$function = reset($function);
 			$function($params);
 		}
 		$this->bridge->setSnippetMode(true);

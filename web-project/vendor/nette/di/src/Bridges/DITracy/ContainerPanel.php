@@ -21,22 +21,20 @@ class ContainerPanel implements Tracy\IBarPanel
 {
 	use Nette\SmartObject;
 
-	/** @var float|null */
+	/** @var int */
 	public static $compilationTime;
 
 	/** @var Nette\DI\Container */
 	private $container;
 
-	/** @var float|null */
+	/** @var int|null */
 	private $elapsedTime;
 
 
 	public function __construct(Container $container)
 	{
 		$this->container = $container;
-		$this->elapsedTime = self::$compilationTime
-			? microtime(true) - self::$compilationTime
-			: null;
+		$this->elapsedTime = self::$compilationTime ? microtime(true) - self::$compilationTime : null;
 	}
 
 
@@ -45,10 +43,10 @@ class ContainerPanel implements Tracy\IBarPanel
 	 */
 	public function getTab(): string
 	{
-		return Nette\Utils\Helpers::capture(function () {
-			$elapsedTime = $this->elapsedTime;
-			require __DIR__ . '/templates/ContainerPanel.tab.phtml';
-		});
+		ob_start(function () {});
+		$elapsedTime = $this->elapsedTime;
+		require __DIR__ . '/templates/ContainerPanel.tab.phtml';
+		return ob_get_clean();
 	}
 
 
@@ -57,29 +55,29 @@ class ContainerPanel implements Tracy\IBarPanel
 	 */
 	public function getPanel(): string
 	{
-		$rc = new \ReflectionClass($this->container);
+		$container = $this->container;
+		$rc = new \ReflectionClass($container);
+		$file = $rc->getFileName();
 		$tags = [];
+		$instances = $this->getContainerProperty('instances');
+		$wiring = $this->getContainerProperty('wiring');
 		$types = [];
 		foreach ($rc->getMethods() as $method) {
-			if (preg_match('#^createService(.+)#', $method->name, $m) && $method->getReturnType()) {
-				$types[lcfirst(str_replace('__', '.', $m[1]))] = $method->getReturnType()->getName();
+			if (preg_match('#^createService(.+)#', $method->getName(), $m) && $method->getReturnType()) {
+				$types[lcfirst(str_replace('__', '.', $m[1]))] = (string) $method->getReturnType();
 			}
 		}
 		$types = $this->getContainerProperty('types') + $types;
-		ksort($types, SORT_NATURAL);
+		ksort($types);
 		foreach ($this->getContainerProperty('tags') as $tag => $tmp) {
 			foreach ($tmp as $service => $val) {
 				$tags[$service][$tag] = $val;
 			}
 		}
 
-		return Nette\Utils\Helpers::capture(function () use ($tags, $types, $rc) {
-			$container = $this->container;
-			$file = $rc->getFileName();
-			$instances = $this->getContainerProperty('instances');
-			$wiring = $this->getContainerProperty('wiring');
-			require __DIR__ . '/templates/ContainerPanel.panel.phtml';
-		});
+		ob_start(function () {});
+		require __DIR__ . '/templates/ContainerPanel.panel.phtml';
+		return ob_get_clean();
 	}
 
 

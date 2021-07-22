@@ -67,9 +67,9 @@ class ContainerLoader
 
 		$handle = @fopen("$file.lock", 'c+'); // @ is escalated to exception
 		if (!$handle) {
-			throw new Nette\IOException("Unable to create file '$file.lock'. " . Nette\Utils\Helpers::getLastError());
+			throw new Nette\IOException("Unable to create file '$file.lock'. " . error_get_last()['message']);
 		} elseif (!@flock($handle, LOCK_EX)) { // @ is escalated to exception
-			throw new Nette\IOException("Unable to acquire exclusive lock on '$file.lock'. " . Nette\Utils\Helpers::getLastError());
+			throw new Nette\IOException("Unable to acquire exclusive lock on '$file.lock'. " . error_get_last()['message']);
 		}
 
 		if (!is_file($file) || $this->isExpired($file, $updatedMeta)) {
@@ -100,7 +100,7 @@ class ContainerLoader
 	{
 		if ($this->autoRebuild) {
 			$meta = @unserialize((string) file_get_contents("$file.meta")); // @ - file may not exist
-			$orig = $meta[2] ?? null;
+			$orig = $meta[2];
 			return empty($meta[0])
 				|| DependencyChecker::isExpired(...$meta)
 				|| ($orig !== $meta[2] && $updatedMeta = serialize($meta));
@@ -109,7 +109,9 @@ class ContainerLoader
 	}
 
 
-	/** @return array of (code, file[]) */
+	/**
+	 * @return array of (code, file[])
+	 */
 	protected function generate(string $class, callable $generator): array
 	{
 		$compiler = new Compiler;

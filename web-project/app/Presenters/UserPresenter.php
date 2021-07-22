@@ -7,6 +7,7 @@ use App\Forms\LoginForm;
 use App\Forms\PasswordForm;
 use App\Models\UserModel;
 use Nette\Security\Identity;
+use Nette\Security\Passwords;
 
 class	UserPresenter extends \Nette\Application\UI\Presenter	{
 			 
@@ -64,7 +65,9 @@ class	UserPresenter extends \Nette\Application\UI\Presenter	{
 												return;
 								}
 								
-								$pwdMatch = $this->model->passwords->verify($values['password'], $u->password);
+								$passwords = new Passwords(PASSWORD_BCRYPT, ['cost' => 12]);
+								
+								$pwdMatch = $passwords->verify($values['password'], $u->password);
 								
 								if (!$pwdMatch) {
 												$form->addError('Přihlašovací údaje nejsou správné.');
@@ -92,7 +95,9 @@ class	UserPresenter extends \Nette\Application\UI\Presenter	{
 												return;
 								}
 								
-								$pwdMatch = $this->model->passwords->verify($values['password'], $u->password);
+								$passwords = new Passwords(PASSWORD_BCRYPT, ['cost' => 12]);
+								
+								$pwdMatch = $passwords->verify($values['password'], $u->password);
 								
 								if (!$pwdMatch) {
 												$form->addError('Vyplněné heslo se neshoduje.');

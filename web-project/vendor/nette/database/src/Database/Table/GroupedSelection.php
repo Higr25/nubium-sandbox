@@ -10,8 +10,8 @@ declare(strict_types=1);
 namespace Nette\Database\Table;
 
 use Nette;
-use Nette\Database\Conventions;
-use Nette\Database\Explorer;
+use Nette\Database\Context;
+use Nette\Database\IConventions;
 
 
 /**
@@ -20,11 +20,11 @@ use Nette\Database\Explorer;
  */
 class GroupedSelection extends Selection
 {
+	/** @var mixed current assigned referencing array */
+	public $refCacheCurrent;
+
 	/** @var Selection referenced table */
 	protected $refTable;
-
-	/** @var  mixed current assigned referencing array */
-	protected $refCacheCurrent;
 
 	/** @var string grouping column name */
 	protected $column;
@@ -36,27 +36,21 @@ class GroupedSelection extends Selection
 	/**
 	 * Creates filtered and grouped table representation.
 	 */
-	public function __construct(
-		Explorer $explorer,
-		Conventions $conventions,
-		string $tableName,
-		string $column,
-		Selection $refTable,
-		Nette\Caching\IStorage $cacheStorage = null
-	) {
+	public function __construct(Context $context, IConventions $conventions, string $tableName, string $column, Selection $refTable, Nette\Caching\IStorage $cacheStorage = null)
+	{
 		$this->refTable = $refTable;
 		$this->column = $column;
-		parent::__construct($explorer, $conventions, $tableName, $cacheStorage);
+		parent::__construct($context, $conventions, $tableName, $cacheStorage);
 	}
 
 
 	/**
 	 * Sets active group.
 	 * @internal
-	 * @param  int|string  $active  primary key of grouped rows
+	 * @param  int  $active  primary key of grouped rows
 	 * @return static
 	 */
-	public function setActive($active)
+	public function setActive(int $active)
 	{
 		$this->active = $active;
 		return $this;
@@ -98,7 +92,8 @@ class GroupedSelection extends Selection
 	 */
 	public function aggregation(string $function)
 	{
-		$aggregation = &$this->getRefTable($refPath)->aggregation[$refPath . $function . $this->sqlBuilder->getSelectQueryHash($this->getPreviousAccessedColumns())];
+		$selectQueryHash = $this->sqlBuilder->getSelectQueryHash($this->cache->getPreviousAccessedColumns());
+		$aggregation = &$this->getRefTable($refPath)->aggregation[$refPath . $function . $selectQueryHash];
 
 		if ($aggregation === null) {
 			$aggregation = [];
@@ -136,16 +131,16 @@ class GroupedSelection extends Selection
 	protected function execute(): void
 	{
 		if ($this->rows !== null) {
-			$this->observeCache = $this;
+			$this->cache->setObserveCache($this);
 			return;
 		}
 
-		$accessedColumns = $this->accessedColumns;
+		$accessedColumns = $this->cache->getAccessedColumns();
 		$this->loadRefCache();
 
 		if (!isset($this->refCacheCurrent['data'])) {
 			// we have not fetched any data yet => init accessedColumns by cached accessedColumns
-			$this->accessedColumns = $accessedColumns;
+			$this->cache->setAccessedColumns($accessedColumns);
 
 			$limit = $this->sqlBuilder->getLimit();
 			$rows = count($this->refTable->rows);
@@ -160,12 +155,7 @@ class GroupedSelection extends Selection
 			foreach ((array) $this->rows as $key => $row) {
 				$ref = &$data[$row[$this->column]];
 				$skip = &$offset[$row[$this->column]];
-				if (
-					$limit === null
-					|| $rows <= 1
-					|| (count($ref ?? []) < $limit
-						&& $skip >= $this->sqlBuilder->getOffset())
-				) {
+				if ($limit === null || $rows <= 1 || (count($ref ?? []) < $limit && $skip >= $this->sqlBuilder->getOffset())) {
 					$ref[$key] = $row;
 				} else {
 					unset($this->rows[$key]);
@@ -178,7 +168,7 @@ class GroupedSelection extends Selection
 			$this->data = &$this->refCacheCurrent['data'][$this->active];
 		}
 
-		$this->observeCache = $this;
+		$this->cache->setObserveCache($this);
 		if ($this->data === null) {
 			$this->data = [];
 		} else {
@@ -205,12 +195,9 @@ class GroupedSelection extends Selection
 
 	protected function loadRefCache(): void
 	{
-		$hash = $this->getSpecificCacheKey();
-		$referencing = &$this->refCache['referencing'][$this->getGeneralCacheKey()];
-		$this->observeCache = &$referencing['observeCache'];
+		$referencing = &$this->refCache->getReferencing($this->cache->getGeneralCacheKey());
+		$hash = $this->cache->loadFromRefCache($referencing);
 		$this->refCacheCurrent = &$referencing[$hash];
-		$this->accessedColumns = &$referencing[$hash]['accessed'];
-		$this->specificCacheKey = &$referencing[$hash]['specificCacheKey'];
 		$this->rows = &$referencing[$hash]['rows'];
 
 		if (isset($referencing[$hash]['data'][$this->active])) {

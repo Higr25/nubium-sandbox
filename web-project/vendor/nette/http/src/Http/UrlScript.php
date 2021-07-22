@@ -49,13 +49,14 @@ class UrlScript extends UrlImmutable
 	}
 
 
-	/** @return static */
+	/**
+	 * @return static
+	 */
 	public function withPath(string $path, string $scriptPath = '')
 	{
 		$dolly = clone $this;
 		$dolly->scriptPath = $scriptPath;
-		$parent = \Closure::fromCallable([UrlImmutable::class, 'withPath'])->bindTo($dolly);
-		return $parent($path);
+		return call_user_func([$dolly, 'parent::withPath'], $path);
 	}
 
 

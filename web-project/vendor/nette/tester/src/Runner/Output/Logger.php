@@ -32,10 +32,10 @@ class Logger implements Tester\Runner\OutputHandler
 	private $results;
 
 
-	public function __construct(Runner $runner, string $file = null)
+	public function __construct(Runner $runner, string $file = 'php://output')
 	{
 		$this->runner = $runner;
-		$this->file = fopen($file ?: 'php://output', 'w');
+		$this->file = fopen($file, 'w');
 	}
 
 
@@ -75,8 +75,7 @@ class Logger implements Tester\Runner\OutputHandler
 	public function end(): void
 	{
 		$run = array_sum($this->results);
-		fwrite(
-			$this->file,
+		fwrite($this->file,
 			($this->results[Test::FAILED] ? 'FAILURES!' : 'OK')
 			. " ($this->count tests"
 			. ($this->results[Test::FAILED] ? ", {$this->results[Test::FAILED]} failures" : '')

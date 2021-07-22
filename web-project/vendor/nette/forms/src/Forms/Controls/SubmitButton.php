@@ -17,16 +17,13 @@ use Nette;
  *
  * @property-read bool $submittedBy
  */
-class SubmitButton extends Button implements Nette\Forms\SubmitterControl
+class SubmitButton extends Button implements Nette\Forms\ISubmitterControl
 {
-	/**
-	 * Occurs when the button is clicked and form is successfully validated
-	 * @var array<callable(self, array|object): void|callable(Nette\Forms\Form, array|object): void|callable(array|object): void>
-	 */
-	public $onClick = [];
+	/** @var callable[]  function (SubmitButton $sender): void; Occurs when the button is clicked and form is successfully validated */
+	public $onClick;
 
-	/** @var array<callable(self): void>  Occurs when the button is clicked and form is not validated */
-	public $onInvalidClick = [];
+	/** @var callable[]  function (SubmitButton $sender): void; Occurs when the button is clicked and form is not validated */
+	public $onInvalidClick;
 
 	/** @var array|null */
 	private $validationScope;
@@ -43,6 +40,9 @@ class SubmitButton extends Button implements Nette\Forms\SubmitterControl
 	}
 
 
+	/**
+	 * Loads HTTP data.
+	 */
 	public function loadHttpData(): void
 	{
 		parent::loadHttpData();
@@ -72,7 +72,7 @@ class SubmitButton extends Button implements Nette\Forms\SubmitterControl
 		} else {
 			$this->validationScope = [];
 			foreach ($scope ?: [] as $control) {
-				if (!$control instanceof Nette\Forms\Container && !$control instanceof Nette\Forms\Control) {
+				if (!$control instanceof Nette\Forms\Container && !$control instanceof Nette\Forms\IControl) {
 					throw new Nette\InvalidArgumentException('Validation scope accepts only Nette\Forms\Container or Nette\Forms\IControl instances.');
 				}
 				$this->validationScope[] = $control;
@@ -96,10 +96,14 @@ class SubmitButton extends Button implements Nette\Forms\SubmitterControl
 	 */
 	public function click(): void
 	{
-		Nette\Utils\Arrays::invoke($this->onClick, $this);
+		$this->onClick($this);
 	}
 
 
+	/**
+	 * Generates control's HTML element.
+	 * @param  string|object  $caption
+	 */
 	public function getControl($caption = null): Nette\Utils\Html
 	{
 		$scope = [];

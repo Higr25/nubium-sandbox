@@ -56,34 +56,30 @@ final class PhpFile
 	}
 
 
-	/** @param  string|PhpNamespace  $namespace */
-	public function addNamespace($namespace): PhpNamespace
+	public function addNamespace(string $name): PhpNamespace
 	{
-		if ($namespace instanceof PhpNamespace) {
-			$res = $this->namespaces[$namespace->getName()] = $namespace;
-
-		} elseif (is_string($namespace)) {
-			$res = $this->namespaces[$namespace] = $this->namespaces[$namespace] ?? new PhpNamespace($namespace);
-
-		} else {
-			throw new Nette\InvalidArgumentException('Argument must be string|PhpNamespace.');
+		if (!isset($this->namespaces[$name])) {
+			$this->namespaces[$name] = new PhpNamespace($name);
+			foreach ($this->namespaces as $namespace) {
+				$namespace->setBracketedSyntax(count($this->namespaces) > 1 && isset($this->namespaces['']));
+			}
 		}
-
-		foreach ($this->namespaces as $namespace) {
-			$namespace->setBracketedSyntax(count($this->namespaces) > 1 && isset($this->namespaces['']));
-		}
-		return $res;
+		return $this->namespaces[$name];
 	}
 
 
-	/** @return PhpNamespace[] */
+	/**
+	 * @return PhpNamespace[]
+	 */
 	public function getNamespaces(): array
 	{
 		return $this->namespaces;
 	}
 
 
-	/** @return static */
+	/**
+	 * @return static
+	 */
 	public function addUse(string $name, string $alias = null): self
 	{
 		$this->addNamespace('')->addUse($name, $alias);
@@ -102,13 +98,6 @@ final class PhpFile
 	}
 
 
-	public function hasStrictTypes(): bool
-	{
-		return $this->strictTypes;
-	}
-
-
-	/** @deprecated  use hasStrictTypes() */
 	public function getStrictTypes(): bool
 	{
 		return $this->strictTypes;
@@ -120,11 +109,7 @@ final class PhpFile
 		try {
 			return (new Printer)->printFile($this);
 		} catch (\Throwable $e) {
-			if (PHP_VERSION_ID >= 70400) {
-				throw $e;
-			}
 			trigger_error('Exception in ' . __METHOD__ . "(): {$e->getMessage()} in {$e->getFile()}:{$e->getLine()}", E_USER_ERROR);
-			return '';
 		}
 	}
 }

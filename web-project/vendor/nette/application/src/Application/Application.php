@@ -11,7 +11,6 @@ namespace Nette\Application;
 
 use Nette;
 use Nette\Routing\Router;
-use Nette\Utils\Arrays;
 
 
 /**
@@ -30,23 +29,23 @@ class Application
 	/** @var string|null */
 	public $errorPresenter;
 
-	/** @var array<callable(self): void>  Occurs before the application loads presenter */
-	public $onStartup = [];
+	/** @var callable[]  function (Application $sender): void; Occurs before the application loads presenter */
+	public $onStartup;
 
-	/** @var array<callable(self, ?\Throwable): void>  Occurs before the application shuts down */
-	public $onShutdown = [];
+	/** @var callable[]  function (Application $sender, \Throwable $e = null): void; Occurs before the application shuts down */
+	public $onShutdown;
 
-	/** @var array<callable(self, Request): void>  Occurs when a new request is received */
-	public $onRequest = [];
+	/** @var callable[]  function (Application $sender, Request $request): void; Occurs when a new request is received */
+	public $onRequest;
 
-	/** @var array<callable(self, IPresenter): void>  Occurs when a presenter is created */
-	public $onPresenter = [];
+	/** @var callable[]  function (Application $sender, IPresenter $presenter): void; Occurs when a presenter is created */
+	public $onPresenter;
 
-	/** @var array<callable(self, Response): void>  Occurs when a new response is ready for dispatch */
-	public $onResponse = [];
+	/** @var callable[]  function (Application $sender, IResponse $response): void; Occurs when a new response is ready for dispatch */
+	public $onResponse;
 
-	/** @var array<callable(self, \Throwable): void>  Occurs when an unhandled exception occurs in the application */
-	public $onError = [];
+	/** @var callable[]  function (Application $sender, \Throwable $e): void; Occurs when an unhandled exception occurs in the application */
+	public $onError;
 
 	/** @var Request[] */
 	private $requests = [];
@@ -67,12 +66,8 @@ class Application
 	private $router;
 
 
-	public function __construct(
-		IPresenterFactory $presenterFactory,
-		Router $router,
-		Nette\Http\IRequest $httpRequest,
-		Nette\Http\IResponse $httpResponse
-	) {
+	public function __construct(IPresenterFactory $presenterFactory, Router $router, Nette\Http\IRequest $httpRequest, Nette\Http\IResponse $httpResponse)
+	{
 		$this->httpRequest = $httpRequest;
 		$this->httpResponse = $httpResponse;
 		$this->presenterFactory = $presenterFactory;
@@ -86,23 +81,23 @@ class Application
 	public function run(): void
 	{
 		try {
-			Arrays::invoke($this->onStartup, $this);
+			$this->onStartup($this);
 			$this->processRequest($this->createInitialRequest());
-			Arrays::invoke($this->onShutdown, $this);
+			$this->onShutdown($this);
 
 		} catch (\Throwable $e) {
-			Arrays::invoke($this->onError, $this, $e);
+			$this->onError($this, $e);
 			if ($this->catchExceptions && $this->errorPresenter) {
 				try {
 					$this->processException($e);
-					Arrays::invoke($this->onShutdown, $this, $e);
+					$this->onShutdown($this, $e);
 					return;
 
 				} catch (\Throwable $e) {
-					Arrays::invoke($this->onError, $this, $e);
+					$this->onError($this, $e);
 				}
 			}
-			Arrays::invoke($this->onShutdown, $this, $e);
+			$this->onShutdown($this, $e);
 			throw $e;
 		}
 	}
@@ -113,12 +108,10 @@ class Application
 		$params = $this->router->match($this->httpRequest);
 		$presenter = $params[UI\Presenter::PRESENTER_KEY] ?? null;
 
-		if ($params === null) {
+		if ($params === null || !is_string($presenter)) {
 			throw new BadRequestException('No route for HTTP request.');
-		} elseif (!is_string($presenter)) {
+		} elseif ($presenter === null) {
 			throw new Nette\InvalidStateException('Missing presenter in route definition.');
-		} elseif (Nette\Utils\Strings::startsWith($presenter, 'Nette:') && $presenter !== 'Nette:Micro') {
-			throw new BadRequestException('Invalid request. Presenter is not achievable.');
 		}
 
 		unset($params[UI\Presenter::PRESENTER_KEY]);
@@ -141,23 +134,18 @@ class Application
 		}
 
 		$this->requests[] = $request;
-		Arrays::invoke($this->onRequest, $this, $request);
+		$this->onRequest($this, $request);
 
-		if (
-			!$request->isMethod($request::FORWARD)
-			&& !strcasecmp($request->getPresenterName(), (string) $this->errorPresenter)
-		) {
+		if (!$request->isMethod($request::FORWARD) && !strcasecmp($request->getPresenterName(), (string) $this->errorPresenter)) {
 			throw new BadRequestException('Invalid request. Presenter is not achievable.');
 		}
 
 		try {
 			$this->presenter = $this->presenterFactory->createPresenter($request->getPresenterName());
 		} catch (InvalidPresenterException $e) {
-			throw count($this->requests) > 1
-				? $e
-				: new BadRequestException($e->getMessage(), 0, $e);
+			throw count($this->requests) > 1 ? $e : new BadRequestException($e->getMessage(), 0, $e);
 		}
-		Arrays::invoke($this->onPresenter, $this, $this->presenter);
+		$this->onPresenter($this, $this->presenter);
 		$response = $this->presenter->run(clone $request);
 
 		if ($response instanceof Responses\ForwardResponse) {
@@ -165,7 +153,7 @@ class Application
 			goto process;
 		}
 
-		Arrays::invoke($this->onResponse, $this, $response);
+		$this->onResponse($this, $response);
 		$response->send($this->httpRequest, $this->httpResponse);
 	}
 
@@ -179,7 +167,7 @@ class Application
 			$this->httpResponse->setCode($e instanceof BadRequestException ? ($e->getHttpCode() ?: 404) : 500);
 		}
 
-		$args = ['exception' => $e, 'request' => Arrays::last($this->requests) ?: null];
+		$args = ['exception' => $e, 'request' => end($this->requests) ?: null];
 		if ($this->presenter instanceof UI\Presenter) {
 			try {
 				$this->presenter->forward(":$this->errorPresenter:", $args);

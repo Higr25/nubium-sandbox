@@ -15,7 +15,7 @@ use Nette;
 /**
  * Callback response.
  */
-final class CallbackResponse implements Nette\Application\Response
+final class CallbackResponse implements Nette\Application\IResponse
 {
 	use Nette\SmartObject;
 
@@ -24,7 +24,7 @@ final class CallbackResponse implements Nette\Application\Response
 
 
 	/**
-	 * @param  callable(Nette\Http\IRequest, Nette\Http\Response): void  $callback
+	 * @param  callable  $callback  function (Nette\Http\IRequest $httpRequest, Nette\Http\IResponse $httpResponse): void
 	 */
 	public function __construct(callable $callback)
 	{

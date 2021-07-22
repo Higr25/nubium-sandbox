@@ -23,17 +23,13 @@ final class GlobalFunction
 	use Traits\FunctionLike;
 	use Traits\NameAware;
 	use Traits\CommentAware;
-	use Traits\AttributeAware;
 
+	/**
+	 * @return static
+	 */
 	public static function from(string $function): self
 	{
 		return (new Factory)->fromFunctionReflection(new \ReflectionFunction($function));
-	}
-
-
-	public static function withBodyFrom(string $function): self
-	{
-		return (new Factory)->fromFunctionReflection(new \ReflectionFunction($function), true);
 	}
 
 
@@ -42,11 +38,7 @@ final class GlobalFunction
 		try {
 			return (new Printer)->printFunction($this);
 		} catch (\Throwable $e) {
-			if (PHP_VERSION_ID >= 70400) {
-				throw $e;
-			}
 			trigger_error('Exception in ' . __METHOD__ . "(): {$e->getMessage()} in {$e->getFile()}:{$e->getLine()}", E_USER_ERROR);
-			return '';
 		}
 	}
 }

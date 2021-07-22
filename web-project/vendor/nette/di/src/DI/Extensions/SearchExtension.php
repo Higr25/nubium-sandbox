@@ -80,6 +80,7 @@ final class SearchExtension extends Nette\DI\CompilerExtension
 		$robot->reportParseErrors(false);
 		$robot->refresh();
 		$classes = array_unique(array_keys($robot->getIndexedClasses()));
+		$classes = array_filter($classes, 'class_exists');
 
 		$exclude = $config->exclude;
 		$acceptRE = self::buildNameRegexp($config->classes);
@@ -89,23 +90,15 @@ final class SearchExtension extends Nette\DI\CompilerExtension
 
 		$found = [];
 		foreach ($classes as $class) {
-			if (!class_exists($class) && !interface_exists($class) && !trait_exists($class)) {
-				throw new Nette\InvalidStateException("Class $class was found, but it cannot be loaded by autoloading.");
-			}
 			$rc = new \ReflectionClass($class);
 			if (
-				($rc->isInstantiable()
-					||
-					($rc->isInterface()
-					&& count($methods = $rc->getMethods()) === 1
-					&& $methods[0]->name === 'create')
-				)
-				&& (!$acceptRE || preg_match($acceptRE, $rc->name))
-				&& (!$rejectRE || !preg_match($rejectRE, $rc->name))
+				$rc->isInstantiable()
+				&& (!$acceptRE || preg_match($acceptRE, $rc->getName()))
+				&& (!$rejectRE || !preg_match($rejectRE, $rc->getName()))
 				&& (!$acceptParent || Arrays::some($acceptParent, function ($nm) use ($rc) { return $rc->isSubclassOf($nm); }))
 				&& (!$rejectParent || Arrays::every($rejectParent, function ($nm) use ($rc) { return !$rc->isSubclassOf($nm); }))
 			) {
-				$found[] = $rc->name;
+				$found[] = $rc->getName();
 			}
 		}
 		return $found;
@@ -116,17 +109,12 @@ final class SearchExtension extends Nette\DI\CompilerExtension
 	{
 		$builder = $this->getContainerBuilder();
 
-		foreach ($this->classes as $class => $foo) {
-			if ($builder->findByType($class)) {
-				unset($this->classes[$class]);
-			}
-		}
-
 		foreach ($this->classes as $class => $tags) {
-			$def = class_exists($class)
-				? $builder->addDefinition(null)->setType($class)
-				: $builder->addFactoryDefinition(null)->setImplement($class);
-			$def->setTags(Arrays::normalize($tags, true));
+			if (!$builder->findByType($class)) {
+				$builder->addDefinition(null)
+					->setType($class)
+					->setTags(Arrays::normalize($tags, true));
+			}
 		}
 	}
 

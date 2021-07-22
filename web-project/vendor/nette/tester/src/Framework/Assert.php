@@ -103,8 +103,6 @@ class Assert
 
 	/**
 	 * Asserts that a haystack (string or array) contains an expected needle.
-	 * @param  mixed  $needle
-	 * @param  array|string  $actual
 	 */
 	public static function contains($needle, $actual, string $description = null): void
 	{
@@ -114,10 +112,7 @@ class Assert
 				self::fail(self::describe('%1 should contain %2', $description), $actual, $needle);
 			}
 		} elseif (is_string($actual)) {
-			if (!is_string($needle)) {
-				self::fail(self::describe('Needle %1 should be string'), $needle);
-
-			} elseif ($needle !== '' && strpos($actual, $needle) === false) {
+			if ($needle !== '' && strpos($actual, $needle) === false) {
 				self::fail(self::describe('%1 should contain %2', $description), $actual, $needle);
 			}
 		} else {
@@ -128,8 +123,6 @@ class Assert
 
 	/**
 	 * Asserts that a haystack (string or array) does not contain an expected needle.
-	 * @param  mixed  $needle
-	 * @param  array|string  $actual
 	 */
 	public static function notContains($needle, $actual, string $description = null): void
 	{
@@ -139,46 +132,11 @@ class Assert
 				self::fail(self::describe('%1 should not contain %2', $description), $actual, $needle);
 			}
 		} elseif (is_string($actual)) {
-			if (!is_string($needle)) {
-				self::fail(self::describe('Needle %1 should be string'), $needle);
-
-			} elseif ($needle === '' || strpos($actual, $needle) !== false) {
+			if ($needle === '' || strpos($actual, $needle) !== false) {
 				self::fail(self::describe('%1 should not contain %2', $description), $actual, $needle);
 			}
 		} else {
 			self::fail(self::describe('%1 should be string or array', $description), $actual);
-		}
-	}
-
-
-	/**
-	 * Asserts that a haystack has an expected key.
-	 * @param  string|int  $key
-	 */
-	public static function hasKey($key, array $actual, string $description = null): void
-	{
-		self::$counter++;
-		if (!is_int($key) && !is_string($key)) {
-			self::fail(self::describe('Key %1 should be string or integer'), $key);
-
-		} elseif (!array_key_exists($key, $actual)) {
-			self::fail(self::describe('%1 should contain key %2', $description), $actual, $key);
-		}
-	}
-
-
-	/**
-	 * Asserts that a haystack doesn't have an expected key.
-	 * @param  string|int  $key
-	 */
-	public static function hasNotKey($key, array $actual, string $description = null): void
-	{
-		self::$counter++;
-		if (!is_int($key) && !is_string($key)) {
-			self::fail(self::describe('Key %1 should be string or integer'), $key);
-
-		} elseif (array_key_exists($key, $actual)) {
-			self::fail(self::describe('%1 should not contain key %2', $description), $actual, $key);
 		}
 	}
 
@@ -218,19 +176,6 @@ class Assert
 		self::$counter++;
 		if ($actual !== null) {
 			self::fail(self::describe('%1 should be NULL', $description), $actual);
-		}
-	}
-
-
-	/**
-	 * Asserts that a value is not null.
-	 * @param  mixed  $actual
-	 */
-	public static function notNull($actual, string $description = null): void
-	{
-		self::$counter++;
-		if ($actual === null) {
-			self::fail(self::describe('Value should not be NULL', $description));
 		}
 	}
 
@@ -276,7 +221,7 @@ class Assert
 
 	/**
 	 * Asserts the number of items in an array or Countable.
-	 * @param  array|\Countable  $value
+	 * @param  mixed  $value
 	 */
 	public static function count(int $count, $value, string $description = null): void
 	{
@@ -315,7 +260,6 @@ class Assert
 
 		} elseif (!$value instanceof $type) {
 			$actual = is_object($value) ? get_class($value) : gettype($value);
-			$type = is_object($type) ? get_class($type) : $type;
 			self::fail(self::describe("$actual should be instance of $type", $description));
 		}
 	}
@@ -324,12 +268,8 @@ class Assert
 	/**
 	 * Asserts that a function throws exception of given type and its message matches given pattern.
 	 */
-	public static function exception(
-		callable $function,
-		string $class,
-		string $message = null,
-		$code = null
-	): ?\Throwable {
+	public static function exception(callable $function, string $class, string $message = null, $code = null): ?\Throwable
+	{
 		self::$counter++;
 		$e = null;
 		try {
@@ -370,7 +310,7 @@ class Assert
 	 */
 	public static function error(callable $function, $expectedType, string $expectedMessage = null): ?\Throwable
 	{
-		if (is_string($expectedType) && !preg_match('#^E_[A-Z_]+$#D', $expectedType)) {
+		if (is_string($expectedType) && !preg_match('#^E_[A-Z_]+\z#', $expectedType)) {
 			return static::exception($function, $expectedType, $expectedMessage);
 		}
 
@@ -532,7 +472,7 @@ class Assert
 
 		if (!self::isPcre($pattern)) {
 			$utf8 = preg_match('#\x80-\x{10FFFF}]#u', $pattern) ? 'u' : '';
-			$suffix = ($strict ? '$#DsU' : '\s*$#sU') . $utf8;
+			$suffix = ($strict ? '\z#sU' : '\s*$#sU') . $utf8;
 			$patterns = static::$patterns + [
 				'[.\\\\+*?[^$(){|\#]' => '\$0', // preg quoting
 				'\x00' => '\x00',
@@ -540,7 +480,7 @@ class Assert
 			];
 			$pattern = '#^' . preg_replace_callback('#' . implode('|', array_keys($patterns)) . '#U' . $utf8, function ($m) use ($patterns) {
 				foreach ($patterns as $re => $replacement) {
-					$s = preg_replace("#^$re$#D", str_replace('\\', '\\\\', $replacement), $m[0], 1, $count);
+					$s = preg_replace("#^$re\\z#", str_replace('\\', '\\\\', $replacement), $m[0], 1, $count);
 					if ($count) {
 						return $s;
 					}
@@ -671,6 +611,6 @@ class Assert
 
 	private static function isPcre(string $pattern): bool
 	{
-		return (bool) preg_match('/^([~#]).+(\1)[imsxUu]*$/Ds', $pattern);
+		return (bool) preg_match('/^([~#]).+(\1)[imsxUu]*\z/s', $pattern);
 	}
 }

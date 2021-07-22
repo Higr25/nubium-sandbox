@@ -21,12 +21,14 @@ final class Closure
 {
 	use Nette\SmartObject;
 	use Traits\FunctionLike;
-	use Traits\AttributeAware;
 
 	/** @var Parameter[] */
 	private $uses = [];
 
 
+	/**
+	 * @return static
+	 */
 	public static function from(\Closure $closure): self
 	{
 		return (new Factory)->fromFunctionReflection(new \ReflectionFunction($closure));
@@ -38,11 +40,7 @@ final class Closure
 		try {
 			return (new Printer)->printClosure($this);
 		} catch (\Throwable $e) {
-			if (PHP_VERSION_ID >= 70400) {
-				throw $e;
-			}
 			trigger_error('Exception in ' . __METHOD__ . "(): {$e->getMessage()} in {$e->getFile()}:{$e->getLine()}", E_USER_ERROR);
-			return '';
 		}
 	}
 

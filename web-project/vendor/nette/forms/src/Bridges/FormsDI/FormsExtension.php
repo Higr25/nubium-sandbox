@@ -17,31 +17,17 @@ use Nette;
  */
 class FormsExtension extends Nette\DI\CompilerExtension
 {
-	public function __construct()
-	{
-		$this->config = new class {
-			/** @var string[] */
-			public $messages = [];
-		};
-	}
-
-
-	public function beforeCompile()
-	{
-		$builder = $this->getContainerBuilder();
-
-		if ($builder->findByType(Nette\Http\IRequest::class)) {
-			$builder->addDefinition($this->prefix('factory'))
-				->setFactory(Nette\Forms\FormFactory::class);
-		}
-	}
+	private $defaults = [
+		'messages' => [],
+	];
 
 
 	public function afterCompile(Nette\PhpGenerator\ClassType $class)
 	{
-		$initialize = $this->initialization ?? $class->getMethod('initialize');
+		$initialize = $class->getMethod('initialize');
+		$config = $this->validateConfig($this->defaults);
 
-		foreach ($this->config->messages as $name => $text) {
+		foreach ((array) $config['messages'] as $name => $text) {
 			if (defined('Nette\Forms\Form::' . $name)) {
 				$initialize->addBody('Nette\Forms\Validator::$messages[Nette\Forms\Form::?] = ?;', [$name, $text]);
 			} elseif (defined($name)) {

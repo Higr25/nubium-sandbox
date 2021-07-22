@@ -32,7 +32,7 @@ class FireLogger implements ILogger
 	 * Sends message to FireLogger console.
 	 * @param  mixed  $message
 	 */
-	public function log($message, $level = self::DEBUG): bool
+	public function log($message, $priority = self::DEBUG): bool
 	{
 		if (!isset($_SERVER['HTTP_X_FIRELOGGER']) || headers_sent()) {
 			return false;
@@ -40,7 +40,7 @@ class FireLogger implements ILogger
 
 		$item = [
 			'name' => 'PHP',
-			'level' => $level,
+			'level' => $priority,
 			'order' => count($this->payload['logs']),
 			'time' => str_pad(number_format((microtime(true) - Debugger::$time) * 1000, 1, '.', ' '), 8, '0', STR_PAD_LEFT) . ' ms',
 			'template' => '',
@@ -64,7 +64,7 @@ class FireLogger implements ILogger
 				unset($trace[0]);
 			}
 
-			$file = str_replace(dirname($e->getFile(), 3), "\xE2\x80\xA6", $e->getFile());
+			$file = str_replace(dirname(dirname(dirname($e->getFile()))), "\xE2\x80\xA6", $e->getFile());
 			$item['template'] = ($e instanceof \ErrorException ? '' : Helpers::getClass($e) . ': ')
 				. $e->getMessage() . ($e->getCode() ? ' #' . $e->getCode() : '') . ' in ' . $file . ':' . $e->getLine();
 			$item['pathname'] = $e->getFile();
@@ -98,18 +98,15 @@ class FireLogger implements ILogger
 			$item['exc_frames'][] = $frame['args'];
 		}
 
-		if (
-			isset($args[0])
-			&& in_array($args[0], [self::DEBUG, self::INFO, self::WARNING, self::ERROR, self::CRITICAL], true)
-		) {
+		if (isset($args[0]) && in_array($args[0], [self::DEBUG, self::INFO, self::WARNING, self::ERROR, self::CRITICAL], true)) {
 			$item['level'] = array_shift($args);
 		}
 
 		$item['args'] = $args;
 
 		$this->payload['logs'][] = $this->jsonDump($item, -1);
-		foreach (str_split(base64_encode(json_encode($this->payload, JSON_INVALID_UTF8_SUBSTITUTE)), 4990) as $k => $v) {
-			header("FireLogger-de11e-$k: $v");
+		foreach (str_split(base64_encode(json_encode($this->payload)), 4990) as $k => $v) {
+			header("FireLogger-de11e-$k:$v");
 		}
 		return true;
 	}
@@ -118,7 +115,7 @@ class FireLogger implements ILogger
 	/**
 	 * Dump implementation for JSON.
 	 * @param  mixed  $var
-	 * @return array|int|float|bool|string|null
+	 * @return array|null|int|float|bool|string
 	 */
 	private function jsonDump(&$var, int $level = 0)
 	{
@@ -126,8 +123,7 @@ class FireLogger implements ILogger
 			return $var;
 
 		} elseif (is_string($var)) {
-			$var = Helpers::encodeString($var, $this->maxLength);
-			return htmlspecialchars_decode(strip_tags($var));
+			return Dumper::encodeString($var, $this->maxLength);
 
 		} elseif (is_array($var)) {
 			static $marker;

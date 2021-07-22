@@ -15,8 +15,6 @@ namespace Tracy;
  */
 class BlueScreen
 {
-	private const MAX_MESSAGE_LENGTH = 2000;
-
 	/** @var string[] */
 	public $info = [];
 
@@ -24,19 +22,13 @@ class BlueScreen
 	public $collapsePaths = [];
 
 	/** @var int  */
-	public $maxDepth = 5;
+	public $maxDepth = 3;
 
 	/** @var int  */
 	public $maxLength = 150;
 
-	/** @var callable|null  a callable returning true for sensitive data; fn(string $key, mixed $val): bool */
-	public $scrubber;
-
 	/** @var string[] */
-	public $keysToHide = ['password', 'passwd', 'pass', 'pwd', 'creditcard', 'credit card', 'cc', 'pin', self::class . '::$snapshot'];
-
-	/** @var bool */
-	public $showEnvironment = true;
+	public $keysToHide = ['password', 'passwd', 'pass', 'pwd', 'creditcard', 'credit card', 'cc', 'pin'];
 
 	/** @var callable[] */
 	private $panels = [];
@@ -50,9 +42,9 @@ class BlueScreen
 
 	public function __construct()
 	{
-		$this->collapsePaths = preg_match('#(.+/vendor)/tracy/tracy/src/Tracy/BlueScreen$#', strtr(__DIR__, '\\', '/'), $m)
-			? [$m[1] . '/tracy', $m[1] . '/nette', $m[1] . '/latte']
-			: [dirname(__DIR__)];
+		$this->collapsePaths[] = preg_match('#(.+/vendor)/tracy/tracy/src/Tracy/BlueScreen$#', strtr(__DIR__, '\\', '/'), $m)
+			? $m[1]
+			: __DIR__;
 	}
 
 
@@ -86,17 +78,12 @@ class BlueScreen
 	public function render(\Throwable $exception): void
 	{
 		if (Helpers::isAjax() && session_status() === PHP_SESSION_ACTIVE) {
-			$_SESSION['_tracy']['bluescreen'][$_SERVER['HTTP_X_TRACY_AJAX']] = [
-				'content' => Helpers::capture(function () use ($exception) {
-					$this->renderTemplate($exception, __DIR__ . '/assets/content.phtml');
-				}),
-				'time' => time(),
-			];
+			ob_start(function () {});
+			$this->renderTemplate($exception, __DIR__ . '/assets/content.phtml');
+			$contentId = $_SERVER['HTTP_X_TRACY_AJAX'];
+			$_SESSION['_tracy']['bluescreen'][$contentId] = ['content' => ob_get_clean(), 'time' => time()];
 
 		} else {
-			if (!headers_sent()) {
-				header('Content-Type: text/html; charset=UTF-8');
-			}
 			$this->renderTemplate($exception, __DIR__ . '/assets/page.phtml');
 		}
 	}
@@ -122,16 +109,18 @@ class BlueScreen
 
 	private function renderTemplate(\Throwable $exception, string $template, $toScreen = true): void
 	{
-		$showEnvironment = $this->showEnvironment && (strpos($exception->getMessage(), 'Allowed memory size') === false);
-		$messageHtml = $this->formatMessage($exception);
+		$messageHtml = preg_replace(
+			'#\'\S[^\']*\S\'|"\S[^"]*\S"#U',
+			'<i>$0</i>',
+			htmlspecialchars((string) $exception->getMessage(), ENT_SUBSTITUTE, 'UTF-8')
+		);
 		$info = array_filter($this->info);
 		$source = Helpers::getSource();
+		$sourceIsUrl = preg_match('#^https?://#', $source);
 		$title = $exception instanceof \ErrorException
 			? Helpers::errorTypeToString($exception->getSeverity())
 			: Helpers::getClass($exception);
-		$lastError = $exception instanceof \ErrorException || $exception instanceof \Error
-			? null
-			: error_get_last();
+		$lastError = $exception instanceof \ErrorException || $exception instanceof \Error ? null : error_get_last();
 
 		if (function_exists('apache_request_headers')) {
 			$httpHeaders = apache_request_headers();
@@ -148,9 +137,9 @@ class BlueScreen
 			__DIR__ . '/assets/bluescreen.css',
 			__DIR__ . '/../Toggle/toggle.css',
 			__DIR__ . '/../TableSort/table-sort.css',
-			__DIR__ . '/../Dumper/assets/dumper-light.css',
+			__DIR__ . '/../Dumper/assets/dumper.css',
 		], Debugger::$customCssFiles));
-		$css = Helpers::minifyCss(implode($css));
+		$css = preg_replace('#\s+#u', ' ', implode($css));
 
 		$nonce = $toScreen ? Helpers::getNonce() : null;
 		$actions = $toScreen ? $this->renderActions($exception) : [];
@@ -202,15 +191,11 @@ class BlueScreen
 			}
 		}
 
-		if (
-			property_exists($ex, 'tracyAction')
-			&& !empty($ex->tracyAction['link'])
-			&& !empty($ex->tracyAction['label'])
-		) {
+		if (property_exists($ex, 'tracyAction') && !empty($ex->tracyAction['link']) && !empty($ex->tracyAction['label'])) {
 			$actions[] = $ex->tracyAction;
 		}
 
-		if (preg_match('# ([\'"])(\w{3,}(?:\\\\\w{3,})+)\1#i', $ex->getMessage(), $m)) {
+		if (preg_match('# ([\'"])(\w{3,}(?:\\\\\w{3,})+)\\1#i', $ex->getMessage(), $m)) {
 			$class = $m[2];
 			if (
 				!class_exists($class) && !interface_exists($class) && !trait_exists($class)
@@ -223,7 +208,7 @@ class BlueScreen
 			}
 		}
 
-		if (preg_match('# ([\'"])((?:/|[a-z]:[/\\\\])\w[^\'"]+\.\w{2,5})\1#i', $ex->getMessage(), $m)) {
+		if (preg_match('# ([\'"])((?:/|[a-z]:[/\\\\])\w[^\'"]+\.\w{2,5})\\1#i', $ex->getMessage(), $m)) {
 			$file = $m[2];
 			$actions[] = [
 				'link' => Helpers::editorUri($file, 1, $label = is_file($file) ? 'open' : 'create'),
@@ -256,24 +241,23 @@ class BlueScreen
 	/**
 	 * Returns syntax highlighted source code.
 	 */
-	public static function highlightFile(string $file, int $line, int $lines = 15): ?string
+	public static function highlightFile(string $file, int $line, int $lines = 15, array $vars = []): ?string
 	{
 		$source = @file_get_contents($file); // @ file may not exist
-		if ($source === false) {
-			return null;
+		if ($source) {
+			$source = static::highlightPhp($source, $line, $lines, $vars);
+			if ($editor = Helpers::editorUri($file, $line)) {
+				$source = substr_replace($source, ' data-tracy-href="' . Helpers::escapeHtml($editor) . '"', 4, 0);
+			}
+			return $source;
 		}
-		$source = static::highlightPhp($source, $line, $lines);
-		if ($editor = Helpers::editorUri($file, $line)) {
-			$source = substr_replace($source, ' title="Ctrl-Click to open in editor" data-tracy-href="' . Helpers::escapeHtml($editor) . '"', 4, 0);
-		}
-		return $source;
 	}
 
 
 	/**
 	 * Returns syntax highlighted source code.
 	 */
-	public static function highlightPhp(string $source, int $line, int $lines = 15): string
+	public static function highlightPhp(string $source, int $line, int $lines = 15, array $vars = []): string
 	{
 		if (function_exists('ini_set')) {
 			ini_set('highlight.comment', '#998; font-style: italic');
@@ -283,12 +267,22 @@ class BlueScreen
 			ini_set('highlight.string', '#080');
 		}
 
-		$source = preg_replace('#(__halt_compiler\s*\(\)\s*;).*#is', '$1', $source);
 		$source = str_replace(["\r\n", "\r"], "\n", $source);
 		$source = explode("\n", highlight_string($source, true));
 		$out = $source[0]; // <code><span color=highlight.html>
 		$source = str_replace('<br />', "\n", $source[1]);
 		$out .= static::highlightLine($source, $line, $lines);
+
+		if ($vars) {
+			$out = preg_replace_callback('#">\$(\w+)(&nbsp;)?</span>#', function (array $m) use ($vars): string {
+				return array_key_exists($m[1], $vars)
+					? '" title="'
+						. str_replace('"', '&quot;', trim(strip_tags(Dumper::toHtml($vars[$m[1]], [Dumper::DEPTH => 1]))))
+						. $m[0]
+					: $m[0];
+			}, $out);
+		}
+
 		$out = str_replace('&nbsp;', ' ', $out);
 		return "<pre class='code'><div>$out</div></pre>";
 	}
@@ -339,7 +333,6 @@ class BlueScreen
 
 	/**
 	 * Should a file be collapsed in stack trace?
-	 * @internal
 	 */
 	public function isCollapsed(string $file): bool
 	{
@@ -354,79 +347,21 @@ class BlueScreen
 	}
 
 
-	/** @internal */
 	public function getDumper(): \Closure
 	{
-		return function ($v, $k = null): string {
+		$keysToHide = array_flip(array_map('strtolower', $this->keysToHide));
+
+		return function ($v, $k = null) use ($keysToHide): string {
+			if (is_string($k) && isset($keysToHide[strtolower($k)])) {
+				$v = Dumper::HIDDEN_VALUE;
+			}
 			return Dumper::toHtml($v, [
 				Dumper::DEPTH => $this->maxDepth,
 				Dumper::TRUNCATE => $this->maxLength,
 				Dumper::SNAPSHOT => &$this->snapshot,
 				Dumper::LOCATION => Dumper::LOCATION_CLASS,
-				Dumper::SCRUBBER => $this->scrubber,
 				Dumper::KEYS_TO_HIDE => $this->keysToHide,
-			], $k);
+			]);
 		};
-	}
-
-
-	private function formatMessage(\Throwable $exception): string
-	{
-		$msg = Helpers::encodeString(trim((string) $exception->getMessage()), self::MAX_MESSAGE_LENGTH);
-
-		// highlight 'string'
-		$msg = preg_replace(
-			'#\'\S(?:[^\']|\\\\\')*\S\'|"\S(?:[^"]|\\\\")*\S"#',
-			'<i>$0</i>',
-			$msg
-		);
-
-		// clickable class & methods
-		$msg = preg_replace_callback(
-			'#(\w+\\\\[\w\\\\]+\w)(?:::(\w+))?#',
-			function ($m) {
-				if (isset($m[2]) && method_exists($m[1], $m[2])) {
-					$r = new \ReflectionMethod($m[1], $m[2]);
-				} elseif (class_exists($m[1], false) || interface_exists($m[1], false)) {
-					$r = new \ReflectionClass($m[1]);
-				}
-				if (empty($r) || !$r->getFileName()) {
-					return $m[0];
-				}
-				return '<a href="' . Helpers::escapeHtml(Helpers::editorUri($r->getFileName(), $r->getStartLine())) . '" class="tracy-editor">' . $m[0] . '</a>';
-			},
-			$msg
-		);
-
-		// clickable file name
-		$msg = preg_replace_callback(
-			'#([\w\\\\/.:-]+\.(?:php|phpt|phtml|latte|neon))(?|:(\d+)| on line (\d+))?#',
-			function ($m) {
-				return @is_file($m[1])
-				? '<a href="' . Helpers::escapeHtml(Helpers::editorUri($m[1], isset($m[2]) ? (int) $m[2] : null)) . '" class="tracy-editor">' . $m[0] . '</a>'
-				: $m[0];
-			},
-			$msg
-		);
-
-		return $msg;
-	}
-
-
-	private function renderPhpInfo(): void
-	{
-		ob_start();
-		@phpinfo(INFO_LICENSE); // @ phpinfo may be disabled
-		$license = ob_get_clean();
-		ob_start();
-		@phpinfo(INFO_CONFIGURATION | INFO_MODULES); // @ phpinfo may be disabled
-		$info = ob_get_clean();
-
-		if (strpos($license, '<body') === false) {
-			echo '<pre class="tracy-dump tracy-light">', Helpers::escapeHtml($info), '</pre>';
-		} else {
-			$info = str_replace('<table', '<table class="tracy-sortable"', $info);
-			echo preg_replace('#^.+<body>|</body>.+\z#s', '', $info);
-		}
 	}
 }

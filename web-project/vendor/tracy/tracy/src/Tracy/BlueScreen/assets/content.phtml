@@ -12,6 +12,7 @@
  * @param  array $info
  * @param  string $title
  * @param  string $source
+ * @param  bool $sourceIsUrl
  * @param  array $lastError
  * @param  array $httpHeaders
  * @param  callable $dump
@@ -27,14 +28,14 @@ $code = $exception->getCode() ? ' #' . $exception->getCode() : '';
 ?>
 <div id="tracy-bs" itemscope>
 	<a id="tracy-bs-toggle" href="#" class="tracy-toggle"></a>
-	<div class="tracy-bs-main">
+	<div>
 		<div id="tracy-bs-error" class="panel">
-			<?php if ($exception->getMessage()): ?><p><?= Helpers::encodeString($title . $code, self::MAX_MESSAGE_LENGTH) ?></p><?php endif ?>
+			<?php if ($exception->getMessage()): ?><p><?= Helpers::escapeHtml($title . $code) ?></p><?php endif ?>
 
 
-			<h1><span><?= $messageHtml ?: Helpers::encodeString($title . $code, self::MAX_MESSAGE_LENGTH) ?></span>
+			<h1><span><?= $messageHtml ?: Helpers::escapeHtml($title . $code) ?></span>
 			<?php foreach ($actions as $item): ?>
-			<a href="<?= Helpers::escapeHtml($item['link']) ?>" class="action"<?= empty($item['external']) ? '' : ' target="_blank" rel="noreferrer noopener"'?>><?= Helpers::escapeHtml($item['label']) ?>&#x25ba;</a>
+			<a href="<?= Helpers::escapeHtml($item['link']) ?>"<?= empty($item['external']) ? '' : ' target="_blank" rel="noreferrer noopener"'?>><?= Helpers::escapeHtml($item['label']) ?>&#x25ba;</a>
 			<?php endforeach ?></h1>
 		</div>
 
@@ -83,7 +84,7 @@ $code = $exception->getCode() ? ' #' . $exception->getCode() : '';
 
 			<div class="<?= $collapsed ? 'tracy-collapsed ' : '' ?>inner">
 				<p><b>File:</b> <?= Helpers::editorLink($ex->getFile(), $ex->getLine()) ?></p>
-				<?php if (is_file($ex->getFile())): ?><?= self::highlightFile($ex->getFile(), $ex->getLine()) ?><?php endif ?>
+				<?php if (is_file($ex->getFile())): ?><?= self::highlightFile($ex->getFile(), $ex->getLine(), 15, $ex instanceof \ErrorException && isset($ex->context) ? $ex->context : []) ?><?php endif ?>
 			</div></div>
 
 
@@ -107,9 +108,9 @@ $code = $exception->getCode() ? ' #' . $exception->getCode() : '';
 
 					<?php
 						if (isset($row['object'])) echo "<a data-tracy-ref='^p + .object' class='tracy-toggle tracy-collapsed'>";
-						if (isset($row['class'])) echo '<b>', Helpers::escapeHtml($row['class'] . $row['type']), '</b>';
+						if (isset($row['class'])) echo Helpers::escapeHtml($row['class'] . $row['type']);
 						if (isset($row['object'])) echo '</a>';
-						echo '<b>', Helpers::escapeHtml($row['function']), '</b> (';
+						echo Helpers::escapeHtml($row['function']), '(';
 						if (!empty($row['args'])): ?><a data-tracy-ref="^p + .args" class="tracy-toggle tracy-collapsed">arguments</a><?php endif ?>)
 					</p>
 
@@ -132,9 +133,8 @@ $code = $exception->getCode() ? ' #' . $exception->getCode() : '';
 							$params = [];
 						}
 						foreach ($row['args'] as $k => $v) {
-							$argName = isset($params[$k]) && !$params[$k]->isVariadic() ? $params[$k]->name : $k;
-							echo '<tr><th>', Helpers::escapeHtml((is_string($argName) ? '$' : '#') . $argName), '</th><td>';
-							echo $dump($v, (string) $argName);
+							echo '<tr><th>', Helpers::escapeHtml(isset($params[$k]) ? '$' . $params[$k]->name : "#$k"), '</th><td>';
+							echo $dump($v, isset($params[$k]) ? $params[$k]->name : null);
 							echo "</td></tr>\n";
 						}
 						?>
@@ -208,7 +208,6 @@ $code = $exception->getCode() ? ' #' . $exception->getCode() : '';
 		<?php endforeach ?>
 
 
-		<?php if ($showEnvironment):?>
 		<div class="panel">
 		<h2><a data-tracy-ref="^+" class="tracy-toggle tracy-collapsed">Environment</a></h2>
 
@@ -268,10 +267,11 @@ $code = $exception->getCode() ? ' #' . $exception->getCode() : '';
 
 			<h3><a data-tracy-ref="^+" class="tracy-toggle tracy-collapsed">Configuration options</a></h3>
 			<div class="outer tracy-collapsed">
-			<?php $this->renderPhpInfo() ?>
+			<?php ob_start(); @phpinfo(INFO_CONFIGURATION | INFO_MODULES); $phpinfo = ob_get_clean(); // @ phpinfo can be disabled
+			$phpinfo = str_replace('<table', '<table class="tracy-sortable"', $phpinfo);
+			echo preg_replace('#^.+<body>|</body>.+\z#s', '', $phpinfo)  ?>
 			</div>
 		</div></div>
-		<?php endif ?>
 
 
 		<?php if (PHP_SAPI === 'cli'): ?>
@@ -298,8 +298,8 @@ $code = $exception->getCode() ? ' #' . $exception->getCode() : '';
 		<h2><a data-tracy-ref="^+" class="tracy-toggle tracy-collapsed">HTTP request</a></h2>
 
 		<div class="tracy-collapsed inner">
-			<h3><?= Helpers::escapeHtml($_SERVER['REQUEST_METHOD'] ?? 'URL') ?></h3>
-			<p><a href="<?= Helpers::escapeHtml($source) ?>" target="_blank" rel="noreferrer noopener"><?= Helpers::escapeHtml($source) ?></a></p>
+			<h3>URL</h3>
+			<p><a href="<?= Helpers::escapeHtml($source) ?>"><?= Helpers::escapeHtml($source) ?></a></p>
 
 			<h3>Headers</h3>
 			<div class="outer">
@@ -337,7 +337,7 @@ $code = $exception->getCode() ? ' #' . $exception->getCode() : '';
 			<div class="outer">
 			<table class="tracy-sortable">
 			<?php
-			foreach (headers_list() as $s) { $s = explode(':', $s, 2); echo '<tr><th>', Helpers::escapeHtml($s[0]), '</th><td>', Helpers::escapeHtml(trim($s[1])), "</td></tr>\n"; }
+			foreach (headers_list() as $s) { $s = explode(': ', $s, 2); echo '<tr><th>', Helpers::escapeHtml($s[0]), '</th><td>', Helpers::escapeHtml($s[1]), "</td></tr>\n"; }
 			?>
 			</table>
 			</div>
@@ -357,14 +357,15 @@ $code = $exception->getCode() ? ' #' . $exception->getCode() : '';
 		</div></div>
 		<?php endforeach ?>
 
-		<footer>
-			<ul>
-				<li><b><a href="https://nette.org/make-donation?to=tracy" target="_blank" rel="noreferrer noopener">Please support Tracy via a donation 💙️</a></b></li>
-				<li>Report generated at <?= date('Y/m/d H:i:s') ?></li>
-				<?php foreach ($info as $item): ?><li><?= Helpers::escapeHtml($item) ?></li><?php endforeach ?>
-			</ul>
-			<div class="footer-logo"><a href="https://tracy.nette.org" rel="noreferrer"></a></div>
-		</footer>
+
+		<ul>
+			<li><b><a href="https://nette.org/make-donation?to=tracy" target="_blank" rel="noreferrer noopener">Please support Tracy via a donation 💙️</a></b></li>
+			<li>Report generated at <?= @date('Y/m/d H:i:s') // @ timezone may not be set ?></li>
+			<li><?php if ($sourceIsUrl): ?><a href="<?= Helpers::escapeHtml($source) ?>"><?php endif ?><?= Helpers::escapeHtml($source) ?><?php if ($sourceIsUrl): ?></a><?php endif ?></li>
+			<?php foreach ($info as $item): ?><li><?= Helpers::escapeHtml($item) ?></li><?php endforeach ?>
+		</ul>
+
+		<div id="tracy-bs-logo"><a href="https://tracy.nette.org" rel="noreferrer"></a></div>
 	</div>
 	<meta itemprop=tracy-snapshot content=<?= Dumper::formatSnapshotAttribute($snapshot) ?>>
 </div>
