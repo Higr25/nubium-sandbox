@@ -24,4 +24,5 @@ První deprecated warning se mi nepodařilo vyřešit, stačí jednou přeskoči
 
 K dokončení
 ------------
+ - Deprecated warning
  - Ke kompletní funkci HTTPS už chybí jen certifikáty, ty se mi nepodařilo zacvaknout. Nginx je ale na HTTPS nakonfigurovaný správně.
