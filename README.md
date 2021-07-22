@@ -20,7 +20,7 @@ Do hosts souboru přidat
 V prohlížeči přejít na 
 > http://nubium-sandbox.test
 
-První deprecated warning stačí jednou přeskočit v Tracy.
+První deprecated warning se mi nepodařilo vyřešit, stačí jednou přeskočit v Tracy.
 
 K dokončení
 ------------
