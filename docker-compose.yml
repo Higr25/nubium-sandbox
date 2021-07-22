@@ -33,11 +33,12 @@ services:
             dockerfile: Dockerfile
         volumes:
             - ./web-project/mysql:/docker-entrypoint-initdb.d
-            - ./web-project/mysql/my.cnf:/web-project/mysql/my.cnf
+            - ./web-project/mysql/custom.cnf:/docker-entrypoint-initdb.d/custom.cnf
+        environment:
+            LANG: C.UTF-8
         ports:
-            - 3306:3306
-        restart: always    
-        command: mysqld --sql_mode="STRICT_ALL_TABLES"    
+            - 3306:3306   
+        restart: always     
             
 
     

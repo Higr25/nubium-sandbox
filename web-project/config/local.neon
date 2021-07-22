@@ -3,5 +3,5 @@ parameters:
 
 database:
 	dsn: 'mysql:host=host.docker.internal;dbname=nette'
-	user: 'dev2'
-	password: 'dev2'
+	user: 'dev'
+	password: 'dev'
