@@ -5,7 +5,7 @@ Nette Docker Aplikace
 Požadavky
 ------------
 
-- Nainstalovaný Docker desktop
+- Nainstalovaný Docker desktop poslední stable verze
 
 
 Spuštení
