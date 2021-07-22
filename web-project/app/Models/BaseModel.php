@@ -1,15 +1,15 @@
 <?php
 
-namespace	App\Models;
+namespace App\Models;
 
 use Nette\Database\Context;
 
+class BaseModel {
 
-class	BaseModel	{
-				
-				public $db;
-    
+    public $db;
+
     public function __construct(Context $db) {
         $this->db = $db;
     }
+
 }

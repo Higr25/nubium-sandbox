@@ -5,7 +5,7 @@ namespace App\Models;
 use App\Models\BaseModel;
 
 class PostModel extends BaseModel {
-    
+
     /**
      * Returns posts from database.
      * @param int $page
@@ -13,32 +13,32 @@ class PostModel extends BaseModel {
      * @param string $order
      * @return object
      */
-    public function getPosts($paginator, $isLoggedIn, $order, $order_type, $idUser = null) {										
-								$order_types = ['created_at', 'header', 'rating'];
-								
-								$_order = array_key_exists($order,	$order_types) ? $order_types[$order] : reset($order_types);
-								$_order_type = boolval($order_type);
-																
-								if ($isLoggedIn) {
-												$sql = $this->getSqlLogged();
-												$count = $this->getSqlLogged(true);
-												
-												$rows = $this->db->query($sql, $idUser, [$_order => $_order_type], $paginator->getOffset(), $paginator->getLength())->fetchAll();
-												$rowsCount = $this->db->query($count)->getRowCount();
-								} else {
-												$sql = $this->getSqlNotLogged();
-												$count_not_logged = $this->getSqlNotLogged(true);
-												
-												$rows = $this->db->query($sql, [$_order => boolval($_order_type)], $paginator->getOffset(), $paginator->getLength())->fetchAll();
-												$rowsCount = $this->db->query($count_not_logged)->getRowCount();
-								}
-        
+    public function getPosts($paginator, $isLoggedIn, $order, $order_type, $idUser = null) {
+        $order_types = ['created_at', 'header', 'rating'];
+
+        $_order = array_key_exists($order, $order_types) ? $order_types[$order] : reset($order_types);
+        $_order_type = boolval($order_type);
+
+        if ($isLoggedIn) {
+            $sql = $this->getSqlLogged();
+            $count = $this->getSqlLogged(true);
+
+            $rows = $this->db->query($sql, $idUser, [$_order => $_order_type], $paginator->getOffset(), $paginator->getLength())->fetchAll();
+            $rowsCount = $this->db->query($count)->getRowCount();
+        } else {
+            $sql = $this->getSqlNotLogged();
+            $count_not_logged = $this->getSqlNotLogged(true);
+
+            $rows = $this->db->query($sql, [$_order => boolval($_order_type)], $paginator->getOffset(), $paginator->getLength())->fetchAll();
+            $rowsCount = $this->db->query($count_not_logged)->getRowCount();
+        }
+
         return ['data' => $rows,
-												    'count' => $rowsCount];
+            'count' => $rowsCount];
     }
-				
-				private function getSqlLogged($count = null) {
-								$sql = <<<EOSQL
+
+    private function getSqlLogged($count = null) {
+        $sql = <<<EOSQL
 								    SELECT p.*,
 																COALESCE( COUNT(distinct(vu.id)), 0 ) AS upvotes,
 																COALESCE( COUNT(distinct(vd.id)), 0 ) AS downvotes,
@@ -67,22 +67,22 @@ class PostModel extends BaseModel {
 												ORDER BY ?
 												LIMIT ?, ?					
 EOSQL;
-								
-								$sql_count = <<<EOSQL
+
+        $sql_count = <<<EOSQL
 												SELECT p.id
 												FROM t_post p
 												WHERE active = 1						
 EOSQL;
-								
-								if ($count) {
-												return $sql_count;
-								}
-								
-								return $sql;
-				}
-				
-				private function getSqlNotLogged($count = null) {
-								$sql = <<<EOSQL
+
+        if ($count) {
+            return $sql_count;
+        }
+
+        return $sql;
+    }
+
+    private function getSqlNotLogged($count = null) {
+        $sql = <<<EOSQL
 												SELECT p.*,
 																COALESCE( COUNT(distinct(vu.id)), 0 ) AS upvotes,
 																COALESCE( COUNT(distinct(vd.id)), 0 ) AS downvotes,
@@ -105,43 +105,44 @@ EOSQL;
 												ORDER BY ?
 												LIMIT ?, ?					
 EOSQL;
-								
-								$sql_count = <<<EOSQL
+
+        $sql_count = <<<EOSQL
 												SELECT p.id
 												FROM t_post p
 												WHERE active = 1 AND private = 0	
 EOSQL;
-								
-								if ($count) {
-												return $sql_count;
-								}
-								
-								return $sql;
-				}
-				
-				public function insertVote($idPost, $up, $idUser, $created_ip) {
-								$this->db->table('t_vote')
-																 ->insert([
-																					'id_post' => $idPost,
-																					'up' => $up,
-																					'id_user' => $idUser,
-																					'created_ip' => $created_ip,
-																					'created_at' => new \Nette\Utils\DateTime,
-																					'active' => 1
-																	]);
-				}
-				
-				public function getVote($idPost, $userId) {
-								return $this->db->table('t_vote')
-																				    ->where(['id_post' => $idPost, 'id_user' => $userId, 'active' => 1])
-																        ->fetch();
-				}
-				
-				public function deleteVote($idVote) {
-								$this->db->table('t_vote')
-																 ->where('id', $idVote)
-																 ->update([
-																					'active' => 0
-																	]);
-				}
+
+        if ($count) {
+            return $sql_count;
+        }
+
+        return $sql;
+    }
+
+    public function insertVote($idPost, $up, $idUser, $created_ip) {
+        $this->db->table('t_vote')
+                ->insert([
+                    'id_post' => $idPost,
+                    'up' => $up,
+                    'id_user' => $idUser,
+                    'created_ip' => $created_ip,
+                    'created_at' => new \Nette\Utils\DateTime,
+                    'active' => 1
+        ]);
+    }
+
+    public function getVote($idPost, $userId) {
+        return $this->db->table('t_vote')
+                        ->where(['id_post' => $idPost, 'id_user' => $userId, 'active' => 1])
+                        ->fetch();
+    }
+
+    public function deleteVote($idVote) {
+        $this->db->table('t_vote')
+                ->where('id', $idVote)
+                ->update([
+                    'active' => 0
+        ]);
+    }
+
 }
