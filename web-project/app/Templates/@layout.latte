@@ -1,46 +1,49 @@
 <!DOCTYPE html>
 <html>
-				<head>
-								<meta charset="utf-8">
-								<meta name="viewport" content="width=device-width">
+    <head>
+        <meta charset="utf-8">
+        <meta name="viewport" content="width=device-width">
 
-								<title>{ifset title}{include title|stripHtml} | {/ifset}Nette Web</title>
+        <title>{ifset title}{include title|stripHtml} | {/ifset}Nette Web</title>
 
-								<link rel="stylesheet" href="/public/css/styles.css">
-								<link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0/css/bootstrap.min.css" integrity="sha384-Gn5384xqQ1aoWXA+058RXPxPg6fy4IWvTNh0E263XmFcJlSAwiGgFAW/dAiS6JXm" crossorigin="anonymous">
-								<link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
+        <link rel="stylesheet" href="/public/css/styles.css">
+        <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0/css/bootstrap.min.css" integrity="sha384-Gn5384xqQ1aoWXA+058RXPxPg6fy4IWvTNh0E263XmFcJlSAwiGgFAW/dAiS6JXm" crossorigin="anonymous">
+        <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
 
-				</head>
+    </head>
 
-				<body>
-								<nav class="navbar navbar-light bg-light">
-												<div class="row w-100 d-flex  justify-content-end">
-																<a href="{link Post:default}" class="btn btn-outline-primary mr-4">Články</a>
-																
-																{if !$user->loggedIn}
-																				<a href="{link User:login}" class="btn btn-outline-primary mr-2" >Přihlásit</a>
-																				<a href="{link User:register}" class="btn btn-primary">Registrovat</a>
-																{else}
-																				<a href="{link User:password}" class="btn btn-outline-primary mr-2" >Změnit heslo</a>
-																				<a href="{link User:logout}" class="btn btn-outline-primary mr-2">Odhlásit</a>
-																{/if}				
-												</div>				
-								</nav>
-												
-								{foreach $flashes as $flash}				
-												<div class="d-flex justify-content-center align-items-center flash {$flash->type}">
-																<span class="text-white">{$flash->message}</span>
-												</div>
-								{/foreach}
+    <body>
+        <nav class="navbar navbar-light bg-light">
+            <div class="row w-25 d-flex justify-content-start">
+                <span class="text-header ml-5">Nubium Sandbox</span>			
+            </div>
+            <div class="row w-75 d-flex justify-content-end">
+                <a href="{link Post:default}" class="btn btn-outline-primary mr-4">Články</a>
 
-								{include content}
+                {if !$user->loggedIn}
+                    <a href="{link User:login}" class="btn btn-outline-primary mr-2" >Přihlásit</a>
+                    <a href="{link User:register}" class="btn btn-primary">Registrovat</a>
+                {else}
+                    <a href="{link User:password}" class="btn btn-outline-primary mr-2" >Změnit heslo</a>
+                    <a href="{link User:logout}" class="btn btn-outline-primary mr-2">Odhlásit</a>
+                {/if}				
+            </div>				
+        </nav>
 
-								{block scripts}
-												<script src="https://code.jquery.com/jquery-3.6.0.min.js" integrity="sha256-/xUj+3OJU5yExlq6GSYGSHk7tPXikynS7ogEvDej/m4=" crossorigin="anonymous"></script>
-												<script src="https://nette.github.io/resources/js/3/netteForms.min.js"></script>
-												<script src="/public/js/functions.js"></script>
-												<script src="/public/js/nette.ajax.js"></script>
-												<script src="/public/js/netteForms.js"></script>
-								{/block}
-				</body>
+        {foreach $flashes as $flash}				
+            <div class="d-flex justify-content-center align-items-center flash {$flash->type}">
+                <span class="text-white">{$flash->message}</span>
+            </div>
+        {/foreach}
+
+        {include content}
+
+        {block scripts}
+        <script src="https://code.jquery.com/jquery-3.6.0.min.js" integrity="sha256-/xUj+3OJU5yExlq6GSYGSHk7tPXikynS7ogEvDej/m4=" crossorigin="anonymous"></script>
+        <script src="https://nette.github.io/resources/js/3/netteForms.min.js"></script>
+        <script src="/public/js/functions.js"></script>
+        <script src="/public/js/nette.ajax.js"></script>
+        <script src="/public/js/netteForms.js"></script>
+        {/block}
+    </body>
 </html>

@@ -1,12 +1,21 @@
 .success, .flash {
-				background-color: green;
-				height: 50px;
+    background-color: green;
+    height: 50px;
 }
 
 .text-green {
-				color: green;
+    color: green;
 }
 
 .text-red {
-				color: red;
+    color: red;
+}
+
+.text-blue {
+    color: #007bff;
+}
+
+.text-header {
+    font-size: 24px;
+    font-weight: 600;
 }

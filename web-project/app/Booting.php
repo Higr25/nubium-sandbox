@@ -10,16 +10,17 @@ class Booting {
 
     public static function boot(): Configurator {
         $configurator = new Configurator;
-
-        //$configurator->setDebugMode('23.75.345.200'); // enable for your remote IP
+                
         $configurator->enableTracy(__DIR__ . '/../log');
-
+        
+        error_reporting(E_ALL & ~E_NOTICE & ~E_DEPRECATED);
+        
         $configurator->setDebugMode(true);
         \Tracy\Debugger::$productionMode = false;
-
+        
         $configurator->setTimeZone('Europe/Prague');
         $configurator->setTempDirectory(__DIR__ . '/../temp');
-
+        
         $configurator->createRobotLoader()
                 ->addDirectory(__DIR__)
                 ->register();
@@ -28,7 +29,8 @@ class Booting {
         $configurator->addConfig(__DIR__ . '/config/local.neon');
 
         $configurator->enableTracy();
-        error_reporting(~E_DEPRECATED & ~E_NOTICE);
+        
+        error_reporting(E_ALL & ~E_NOTICE & ~E_DEPRECATED);
 
         return $configurator;
     }

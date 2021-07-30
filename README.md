@@ -5,7 +5,7 @@ Nette Docker Aplikace
 Požadavky
 ------------
 
-- Nainstalovaný Docker desktop poslední stable verze
+- Nainstalovaný Docker desktop
 
 
 Spuštení
@@ -19,8 +19,6 @@ Do hosts souboru přidat
 
 V prohlížeči přejít na 
 > http://nubium-sandbox.test
-
-MySQL trvá asi o minutu déle než naběhne při prvním spuštění, kvůli plnění databáze.
 
 První deprecated warning se mi nepodařilo vyřešit, stačí jednou přeskočit v Tracy.
 

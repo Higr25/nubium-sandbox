@@ -11,13 +11,13 @@ class PostPresenter extends Nette\Application\UI\Presenter {
 
     /** @var PostModel @inject */
     public $model;
-
+    
     /** @persistent */
     public $page = 1;
-
+    
     /** @persistent */
     public $order = 0;
-
+    
     /** @persistent */
     public $order_type = 1;
 
@@ -64,6 +64,10 @@ class PostPresenter extends Nette\Application\UI\Presenter {
     }
 
     public function handleRefresh(string $key, int $value) {
+        if ($key != 'order' && $key != 'order_type' && $key != 'page') {
+            return;
+        }
+        
         $this->$key = $value;
 
         if ($key != 'page') {
