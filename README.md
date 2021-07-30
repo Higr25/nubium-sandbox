@@ -20,9 +20,6 @@ Do hosts souboru přidat
 V prohlížeči přejít na 
 > http://nubium-sandbox.test
 
-První deprecated warning se mi nepodařilo vyřešit, stačí jednou přeskočit v Tracy.
-
 K dokončení
 ------------
- - Deprecated warning
  - Ke kompletní funkci HTTPS už chybí jen certifikáty, ty se mi nepodařilo zacvaknout. Nginx je ale na HTTPS nakonfigurovaný správně.
